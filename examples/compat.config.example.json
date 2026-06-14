@@ -1,0 +1,21 @@
+{
+  "targets": [
+    {
+      "name": "local-openfusion",
+      "baseURL": "http://127.0.0.1:8787/v1",
+      "model": "openfusion/fusion"
+    },
+    {
+      "name": "openrouter",
+      "baseURL": "https://openrouter.ai/api/v1",
+      "model": "openrouter/fusion",
+      "apiKeyEnv": "OPENROUTER_API_KEY"
+    },
+    {
+      "name": "your-relay",
+      "baseURL": "https://your-relay.example.com/v1",
+      "model": "your-default-model",
+      "apiKeyEnv": "YOUR_RELAY_API_KEY"
+    }
+  ]
+}

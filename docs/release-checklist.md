@@ -38,6 +38,12 @@ Generate the Markdown report:
 node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1 --format markdown
 ```
 
+Generate the provider matrix:
+
+```bash
+node src/cli.js compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion"
+```
+
 Test a tool-call passthrough request:
 
 ```bash

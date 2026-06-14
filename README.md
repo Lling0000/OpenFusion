@@ -77,7 +77,7 @@ This is especially useful when your Codex or editor setup already talks to an AP
 - OpenAI-compatible local endpoint: `POST /v1/chat/completions`.
 - Model listing endpoint: `GET /v1/models`.
 - Debug route endpoint: `POST /debug/route`.
-- CLI commands: `init`, `models`, `doctor`, `serve`, and `chat`.
+- CLI commands: `init`, `models`, `doctor`, `compat`, `serve`, and `chat`.
 - Transparent `route -> panel -> judge -> synthesize` pipeline.
 - Works with OpenRouter or any OpenAI-compatible API relay.
 - Dry-run mode for local testing without API keys.
@@ -111,6 +111,14 @@ Generate a Markdown compatibility report:
 
 ```bash
 node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1 --format markdown
+```
+
+Compare multiple providers or relays:
+
+```bash
+node src/cli.js compat \
+  --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" \
+  --target "openrouter|https://openrouter.ai/api/v1|openrouter/fusion|OPENROUTER_API_KEY"
 ```
 
 ## Use With Codex Or An API Relay

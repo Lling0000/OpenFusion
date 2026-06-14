@@ -72,6 +72,20 @@ YOUR_RELAY_API_KEY="..." node src/cli.js doctor \
   --format markdown
 ```
 
+Compare several relays at once:
+
+```bash
+node src/cli.js compat --compat-config examples/compat.config.example.json
+```
+
+Or pass targets inline:
+
+```bash
+node src/cli.js compat \
+  --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" \
+  --target "your-relay|https://your-relay.example.com/v1|your-default-model|YOUR_RELAY_API_KEY"
+```
+
 The probe checks:
 
 - `GET /models`

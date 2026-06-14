@@ -7,6 +7,7 @@ import { initConfig } from "./init.js";
 import { runDoctor } from "./doctor.js";
 import { listModels } from "./models.js";
 import { renderDoctorMarkdown } from "./report.js";
+import { loadCompatTargets, renderCompatibilityMatrixMarkdown, runCompatibilityMatrix } from "./compat.js";
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -61,6 +62,22 @@ export async function main(args) {
     return result.ok ? 0 : 1;
   }
 
+  if (args.command === "compat") {
+    const targets = await loadCompatTargets({
+      configPath: args.compatConfig,
+      targetSpecs: args.targets
+    });
+    const matrix = await runCompatibilityMatrix({ targets });
+
+    if (args.json) {
+      console.log(JSON.stringify(matrix, null, 2));
+    } else {
+      console.log(renderCompatibilityMatrixMarkdown(matrix));
+    }
+
+    return matrix.ok ? 0 : 1;
+  }
+
   if (args.server) {
     const { startServer } = await import("./server.js");
     const server = await startServer({ configPath: args.config, dryRun: args.dryRun, port: args.port });
@@ -100,10 +117,11 @@ export function parseArgs(argv) {
     server: false,
     real: false,
     force: false,
-    port: Number(process.env.PORT || 8787)
+    port: Number(process.env.PORT || 8787),
+    targets: []
   };
   const questionParts = [];
-  const commands = new Set(["init", "models", "doctor", "serve", "chat"]);
+  const commands = new Set(["init", "models", "doctor", "compat", "serve", "chat"]);
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -122,6 +140,8 @@ export function parseArgs(argv) {
     else if (arg === "--probe-url") parsed.probeUrl = argv[++index];
     else if (arg === "--probe-model") parsed.probeModel = argv[++index];
     else if (arg === "--format") parsed.format = argv[++index];
+    else if (arg === "--target") parsed.targets.push(argv[++index]);
+    else if (arg === "--compat-config") parsed.compatConfig = argv[++index];
     else questionParts.push(arg);
   }
 
@@ -156,6 +176,8 @@ Usage:
   openfusion init [--output openfusion.config.json] [--force]
   openfusion models [--json] [--config openfusion.config.json]
   openfusion doctor [--real] [--probe-url http://127.0.0.1:8787/v1] [--json] [--format markdown]
+  openfusion compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" [--json]
+  openfusion compat --compat-config examples/compat.config.example.json
   openfusion serve [--dry-run] [--port 8787]
   openfusion chat [--dry-run] [--json] "your question"
   openfusion [--dry-run] [--json] [--config openfusion.config.json] "your question"
@@ -166,6 +188,7 @@ Examples:
   node src/cli.js doctor
   node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1
   node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1 --format markdown
+  node src/cli.js compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion"
   node src/cli.js models
   node src/cli.js --dry-run "Review this API design for security and tests"
   node src/cli.js --server --dry-run --port 8787

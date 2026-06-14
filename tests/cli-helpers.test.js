@@ -12,6 +12,7 @@ import { parseArgs } from "../src/cli.js";
 import { startServer } from "../src/server.js";
 import { probeEndpoint } from "../src/probe.js";
 import { renderDoctorMarkdown } from "../src/report.js";
+import { loadCompatTargets, renderCompatibilityMatrixMarkdown, runCompatibilityMatrix } from "../src/compat.js";
 
 test("parses explicit chat and serve commands", () => {
   const chat = parseArgs(["chat", "--dry-run", "--json", "Fix", "this", "test"]);
@@ -28,6 +29,10 @@ test("parses explicit chat and serve commands", () => {
   assert.equal(doctor.command, "doctor");
   assert.equal(doctor.probeUrl, "http://127.0.0.1:8787/v1");
   assert.equal(doctor.format, "markdown");
+
+  const compat = parseArgs(["compat", "--target", "local|http://127.0.0.1:8787/v1|openfusion/fusion"]);
+  assert.equal(compat.command, "compat");
+  assert.deepEqual(compat.targets, ["local|http://127.0.0.1:8787/v1|openfusion/fusion"]);
 });
 
 test("lists virtual and role models", () => {
@@ -101,6 +106,28 @@ test("renders doctor results as a Markdown compatibility report", async () => {
   assert.match(markdown, /\| `probe\.chat` \| PASS \|/);
   assert.match(markdown, /\| `probe\.tool\.roundtrip` \| FAIL \| Tool \\| follow-up failed\. \|/);
   assert.match(markdown, /Overall: \*\*FAIL\*\*/);
+});
+
+test("runs and renders a provider compatibility matrix", async () => {
+  const server = await startServer({ dryRun: true, port: 0 });
+  const { port } = server.address();
+
+  try {
+    const targets = await loadCompatTargets({
+      targetSpecs: [`local|http://127.0.0.1:${port}/v1|openfusion/fusion`]
+    });
+    const matrix = await runCompatibilityMatrix({ targets });
+    const markdown = renderCompatibilityMatrixMarkdown(matrix);
+
+    assert.equal(matrix.ok, true);
+    assert.equal(matrix.results[0].name, "local");
+    assert.ok(matrix.results[0].checks.some((check) => check.name === "probe.tool.roundtrip" && check.ok));
+    assert.match(markdown, /# OpenFusion Provider Compatibility Matrix/);
+    assert.match(markdown, /\| local \| `openfusion\/fusion` \|/);
+    assert.match(markdown, /Overall: \*\*PASS\*\*/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 test("cli serve keeps a foreground server alive", async () => {

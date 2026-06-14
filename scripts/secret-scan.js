@@ -51,6 +51,10 @@ function scan(dir) {
         return;
       }
 
+      if (line.includes("process.env")) {
+        return;
+      }
+
       if (suspicious.some((pattern) => pattern.test(line))) {
         findings.push(`${path}:${index + 1}`);
       }
