@@ -9,6 +9,10 @@ export async function loadCompatTargets({ configPath, targetSpecs = [] } = {}) {
 }
 
 export async function runCompatibilityMatrix({ targets, timeoutMs = 10000 } = {}) {
+  if (!targets?.length) {
+    throw new Error("Compatibility matrix requires at least one target.");
+  }
+
   const results = [];
 
   for (const target of targets) {

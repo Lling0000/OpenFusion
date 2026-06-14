@@ -157,6 +157,7 @@ model = openfusion/fusion
 OpenFusion will receive the local request, choose a role panel, call your upstream relay, and return a normal chat completion.
 
 See [docs/codex-relay.md](docs/codex-relay.md) for a more complete Codex/API relay setup guide, including `doctor --probe-url`.
+See [docs/providers](docs/providers) for compatibility report templates and community provider matrix guidance.
 
 ## What The Trace Shows
 

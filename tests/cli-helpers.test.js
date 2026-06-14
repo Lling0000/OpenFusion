@@ -130,6 +130,13 @@ test("runs and renders a provider compatibility matrix", async () => {
   }
 });
 
+test("compatibility matrix requires at least one target", async () => {
+  await assert.rejects(
+    () => runCompatibilityMatrix({ targets: [] }),
+    /requires at least one target/
+  );
+});
+
 test("cli serve keeps a foreground server alive", async () => {
   const port = 18787;
   const child = spawn(process.execPath, ["src/cli.js", "serve", "--dry-run", "--port", String(port)], {
