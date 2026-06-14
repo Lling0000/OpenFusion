@@ -18,19 +18,25 @@ git status --short --branch
 
 ## Manual Smoke
 
-Start the local server:
+Start the local server in one terminal:
 
 ```bash
 node src/cli.js serve --dry-run --port 8787
 ```
 
-Probe it:
+Probe it from another terminal:
 
 ```bash
 node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1
 ```
 
 The probe covers `/models`, regular chat completions, SSE-style streaming, and a tool-call round-trip.
+
+Generate the Markdown report:
+
+```bash
+node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1 --format markdown
+```
 
 Test a tool-call passthrough request:
 

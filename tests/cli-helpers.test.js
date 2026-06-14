@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defaultConfig } from "../src/defaultConfig.js";
@@ -10,6 +11,7 @@ import { listModels } from "../src/models.js";
 import { parseArgs } from "../src/cli.js";
 import { startServer } from "../src/server.js";
 import { probeEndpoint } from "../src/probe.js";
+import { renderDoctorMarkdown } from "../src/report.js";
 
 test("parses explicit chat and serve commands", () => {
   const chat = parseArgs(["chat", "--dry-run", "--json", "Fix", "this", "test"]);
@@ -21,6 +23,11 @@ test("parses explicit chat and serve commands", () => {
   const serve = parseArgs(["serve", "--port", "9999"]);
   assert.equal(serve.server, true);
   assert.equal(serve.port, 9999);
+
+  const doctor = parseArgs(["doctor", "--probe-url", "http://127.0.0.1:8787/v1", "--format", "markdown"]);
+  assert.equal(doctor.command, "doctor");
+  assert.equal(doctor.probeUrl, "http://127.0.0.1:8787/v1");
+  assert.equal(doctor.format, "markdown");
 });
 
 test("lists virtual and role models", () => {
@@ -77,6 +84,41 @@ test("probeEndpoint reports contract checks", async () => {
   }
 });
 
+test("renders doctor results as a Markdown compatibility report", async () => {
+  const result = {
+    ok: false,
+    mode: "dry-run",
+    probeURL: "http://127.0.0.1:8787/v1",
+    checks: [
+      { name: "probe.chat", ok: true, message: "POST /chat/completions returned 200." },
+      { name: "probe.tool.roundtrip", ok: false, message: "Tool | follow-up failed." }
+    ]
+  };
+
+  const markdown = renderDoctorMarkdown(result);
+
+  assert.match(markdown, /# OpenFusion Compatibility Report/);
+  assert.match(markdown, /\| `probe\.chat` \| PASS \|/);
+  assert.match(markdown, /\| `probe\.tool\.roundtrip` \| FAIL \| Tool \\| follow-up failed\. \|/);
+  assert.match(markdown, /Overall: \*\*FAIL\*\*/);
+});
+
+test("cli serve keeps a foreground server alive", async () => {
+  const port = 18787;
+  const child = spawn(process.execPath, ["src/cli.js", "serve", "--dry-run", "--port", String(port)], {
+    cwd: process.cwd(),
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  try {
+    await waitForHealth(`http://127.0.0.1:${port}/health`);
+    assert.equal(child.exitCode, null);
+  } finally {
+    child.kill("SIGTERM");
+    await new Promise((resolve) => child.once("exit", resolve));
+  }
+});
+
 test("init creates config and refuses overwrite unless forced", async () => {
   const dir = await mkdtemp(join(tmpdir(), "openfusion-"));
   const configPath = join(dir, "openfusion.config.json");
@@ -98,3 +140,21 @@ test("init creates config and refuses overwrite unless forced", async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+async function waitForHealth(url) {
+  const started = Date.now();
+  let lastError;
+
+  while (Date.now() - started < 3000) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) return;
+    } catch (error) {
+      lastError = error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  throw lastError ?? new Error("Timed out waiting for health check.");
+}

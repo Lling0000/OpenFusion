@@ -6,6 +6,7 @@ import { runFusion } from "./fusion.js";
 import { initConfig } from "./init.js";
 import { runDoctor } from "./doctor.js";
 import { listModels } from "./models.js";
+import { renderDoctorMarkdown } from "./report.js";
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -41,14 +42,16 @@ export async function main(args) {
 
   if (args.command === "doctor") {
     const config = await loadConfig(args.config);
-  const result = await runDoctor({
-    config,
-    real: args.real,
-    probeURL: args.probeUrl,
-    probeModel: args.probeModel
-  });
+    const result = await runDoctor({
+      config,
+      real: args.real,
+      probeURL: args.probeUrl,
+      probeModel: args.probeModel
+    });
     if (args.json) {
       console.log(JSON.stringify(result, null, 2));
+    } else if (args.format === "markdown") {
+      console.log(renderDoctorMarkdown(result));
     } else {
       console.log(`OpenFusion doctor (${result.mode})`);
       for (const item of result.checks) {
@@ -60,7 +63,8 @@ export async function main(args) {
 
   if (args.server) {
     const { startServer } = await import("./server.js");
-    await startServer({ configPath: args.config, dryRun: args.dryRun, port: args.port });
+    const server = await startServer({ configPath: args.config, dryRun: args.dryRun, port: args.port });
+    await waitForShutdown(server);
     return 0;
   }
 
@@ -75,6 +79,17 @@ export async function main(args) {
   }
 
   return 0;
+}
+
+export function waitForShutdown(server) {
+  return new Promise((resolve) => {
+    const shutdown = () => {
+      server.close(() => resolve());
+    };
+
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
+  });
 }
 
 export function parseArgs(argv) {
@@ -106,6 +121,7 @@ export function parseArgs(argv) {
     else if (arg === "--port") parsed.port = Number(argv[++index]);
     else if (arg === "--probe-url") parsed.probeUrl = argv[++index];
     else if (arg === "--probe-model") parsed.probeModel = argv[++index];
+    else if (arg === "--format") parsed.format = argv[++index];
     else questionParts.push(arg);
   }
 
@@ -139,7 +155,7 @@ function printHelp() {
 Usage:
   openfusion init [--output openfusion.config.json] [--force]
   openfusion models [--json] [--config openfusion.config.json]
-  openfusion doctor [--real] [--probe-url http://127.0.0.1:8787/v1] [--json]
+  openfusion doctor [--real] [--probe-url http://127.0.0.1:8787/v1] [--json] [--format markdown]
   openfusion serve [--dry-run] [--port 8787]
   openfusion chat [--dry-run] [--json] "your question"
   openfusion [--dry-run] [--json] [--config openfusion.config.json] "your question"
@@ -149,6 +165,7 @@ Examples:
   node src/cli.js init
   node src/cli.js doctor
   node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1
+  node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1 --format markdown
   node src/cli.js models
   node src/cli.js --dry-run "Review this API design for security and tests"
   node src/cli.js --server --dry-run --port 8787

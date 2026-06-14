@@ -62,6 +62,16 @@ YOUR_RELAY_API_KEY="..." node src/cli.js doctor \
   --probe-model your-default-model
 ```
 
+Generate a Markdown report you can paste into issues or docs:
+
+```bash
+YOUR_RELAY_API_KEY="..." node src/cli.js doctor \
+  --config openfusion.config.json \
+  --probe-url https://your-relay.example.com/v1 \
+  --probe-model your-default-model \
+  --format markdown
+```
+
 The probe checks:
 
 - `GET /models`

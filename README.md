@@ -107,6 +107,12 @@ Use `--probe-url` to verify an OpenAI-compatible endpoint, including chat, basic
 node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1
 ```
 
+Generate a Markdown compatibility report:
+
+```bash
+node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1 --format markdown
+```
+
 ## Use With Codex Or An API Relay
 
 Create a config file:
