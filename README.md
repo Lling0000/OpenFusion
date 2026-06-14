@@ -133,6 +133,8 @@ model = openfusion/fusion
 
 OpenFusion will receive the local request, choose a role panel, call your upstream relay, and return a normal chat completion.
 
+See [docs/codex-relay.md](docs/codex-relay.md) for a more complete Codex/API relay setup guide, including `doctor --probe-url`.
+
 ## What The Trace Shows
 
 OpenFusion returns a normal chat completion response plus an `openfusion` trace:
@@ -184,8 +186,8 @@ OpenFusion implements a small OpenAI-compatible surface for local routing.
 | `POST /v1/chat/completions` | Supported | Non-streaming chat completions. |
 | `GET /v1/models` | Supported | Lists virtual OpenFusion models and role models. |
 | `POST /debug/route` | Supported | Shows selected roles and routing rationale without running the full pipeline. |
-| Streaming responses | Planned | Listed on the roadmap; not yet implemented. |
-| Tool calls / function calling | Planned | Provider compatibility work is still needed. |
+| Streaming responses | Basic support | Returns SSE-compatible chunks after the fusion result is ready. Token-by-token streaming is planned. |
+| Tool calls / function calling | Explicitly unsupported | Returns `501 tool_calls_unsupported` instead of silently dropping tool fields. |
 | Embeddings, images, audio | Not supported | OpenFusion currently focuses on coding-agent chat workflows. |
 
 ## OpenRouter Fusion Notes
@@ -209,12 +211,12 @@ If you adopt it, keep tests, code review, and domain-specific validation in the 
 
 ## Roadmap
 
-- Streaming responses from the local server.
+- Token-by-token streaming from the local server.
 - Better prompt classification with examples and custom rules.
 - Budget-aware routing by cost, latency, and context window.
 - Eval receipts comparing single-model vs fusion answers.
 - Adapter presets for Codex, OpenCode, Continue, Cline, Aider, and LiteLLM.
-- Compatibility doctor for provider quirks: tool calls, streaming, usage chunks, and headers.
+- Deeper compatibility doctor checks for provider quirks: tool calls, usage chunks, and headers.
 - Worktree fanout mode for trying multiple coding agents and letting tests judge the winner.
 - Web trace viewer for panel answers and judge decisions.
 
@@ -224,7 +226,7 @@ OpenFusion is intentionally small, so focused contributions are welcome.
 
 - Add adapter presets for Codex, Aider, OpenCode, Continue, Cline, and LiteLLM.
 - Add provider compatibility tests for OpenRouter and other OpenAI-compatible relays.
-- Add streaming support for `/v1/chat/completions`.
+- Add token-by-token streaming support for `/v1/chat/completions`.
 - Add eval receipts comparing single-model and fused answers.
 - Add a trace viewer for panel answers, judge notes, and final synthesis.
 

@@ -1,8 +1,9 @@
 import { MockChatClient } from "./mockClient.js";
 import { OpenAICompatibleClient } from "./openaiClient.js";
 import { runFusion } from "./fusion.js";
+import { probeEndpoint } from "./probe.js";
 
-export async function runDoctor({ config, real = false } = {}) {
+export async function runDoctor({ config, real = false, probeURL, probeModel = "openfusion/fusion" } = {}) {
   const checks = [];
 
   checks.push(check("config", true, "Configuration loaded."));
@@ -40,9 +41,25 @@ export async function runDoctor({ config, real = false } = {}) {
     }
   }
 
+  if (probeURL) {
+    try {
+      const probe = await probeEndpoint({
+        baseURL: probeURL,
+        model: probeModel,
+        apiKey
+      });
+      for (const item of probe.checks) {
+        checks.push(item);
+      }
+    } catch (error) {
+      checks.push(check("probe", false, error.message));
+    }
+  }
+
   return {
     ok: checks.every((item) => item.ok),
     mode: real ? "real" : "dry-run",
+    probeURL: probeURL ?? null,
     checks
   };
 }

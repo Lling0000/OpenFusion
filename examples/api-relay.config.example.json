@@ -1,0 +1,37 @@
+{
+  "upstream": {
+    "baseURL": "https://your-relay.example.com/v1",
+    "apiKeyEnv": "YOUR_RELAY_API_KEY",
+    "appName": "OpenFusion",
+    "siteURL": "https://github.com/Lling0000/OpenFusion"
+  },
+  "roles": {
+    "fast": {
+      "model": "your-fast-model",
+      "description": "Fast and cheap first pass."
+    },
+    "reasoner": {
+      "model": "your-reasoning-model",
+      "description": "Planning, tradeoffs, and difficult reasoning."
+    },
+    "coder": {
+      "model": "your-code-model",
+      "description": "Code, debugging, tests, and implementation."
+    },
+    "verifier": {
+      "model": "your-review-model",
+      "description": "Verification, risk checks, and critique."
+    },
+    "writer": {
+      "model": "your-polish-model",
+      "description": "Final synthesis and concise writing."
+    }
+  },
+  "fusion": {
+    "minPanel": 2,
+    "maxPanel": 4,
+    "judgeRole": "verifier",
+    "synthesizerRole": "writer",
+    "timeoutMs": 90000
+  }
+}

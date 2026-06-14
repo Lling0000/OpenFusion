@@ -41,7 +41,12 @@ export async function main(args) {
 
   if (args.command === "doctor") {
     const config = await loadConfig(args.config);
-    const result = await runDoctor({ config, real: args.real });
+  const result = await runDoctor({
+    config,
+    real: args.real,
+    probeURL: args.probeUrl,
+    probeModel: args.probeModel
+  });
     if (args.json) {
       console.log(JSON.stringify(result, null, 2));
     } else {
@@ -99,6 +104,8 @@ export function parseArgs(argv) {
     else if (arg === "--config") parsed.config = argv[++index];
     else if (arg === "--output" || arg === "-o") parsed.output = argv[++index];
     else if (arg === "--port") parsed.port = Number(argv[++index]);
+    else if (arg === "--probe-url") parsed.probeUrl = argv[++index];
+    else if (arg === "--probe-model") parsed.probeModel = argv[++index];
     else questionParts.push(arg);
   }
 
@@ -132,7 +139,7 @@ function printHelp() {
 Usage:
   openfusion init [--output openfusion.config.json] [--force]
   openfusion models [--json] [--config openfusion.config.json]
-  openfusion doctor [--real] [--json] [--config openfusion.config.json]
+  openfusion doctor [--real] [--probe-url http://127.0.0.1:8787/v1] [--json]
   openfusion serve [--dry-run] [--port 8787]
   openfusion chat [--dry-run] [--json] "your question"
   openfusion [--dry-run] [--json] [--config openfusion.config.json] "your question"
@@ -141,6 +148,7 @@ Usage:
 Examples:
   node src/cli.js init
   node src/cli.js doctor
+  node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1
   node src/cli.js models
   node src/cli.js --dry-run "Review this API design for security and tests"
   node src/cli.js --server --dry-run --port 8787

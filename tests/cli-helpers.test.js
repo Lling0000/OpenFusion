@@ -8,6 +8,8 @@ import { runDoctor } from "../src/doctor.js";
 import { initConfig } from "../src/init.js";
 import { listModels } from "../src/models.js";
 import { parseArgs } from "../src/cli.js";
+import { startServer } from "../src/server.js";
+import { probeEndpoint } from "../src/probe.js";
 
 test("parses explicit chat and serve commands", () => {
   const chat = parseArgs(["chat", "--dry-run", "--json", "Fix", "this", "test"]);
@@ -34,6 +36,43 @@ test("doctor validates dry-run fusion pipeline without upstream key", async () =
   assert.equal(result.ok, true);
   assert.equal(result.mode, "dry-run");
   assert.ok(result.checks.some((check) => check.name === "fusion.pipeline" && check.ok));
+});
+
+test("doctor can probe an OpenAI-compatible endpoint", async () => {
+  const server = await startServer({ dryRun: true, port: 0 });
+  const { port } = server.address();
+
+  try {
+    const result = await runDoctor({
+      config: defaultConfig,
+      probeURL: `http://127.0.0.1:${port}/v1`,
+      probeModel: "openfusion/fusion"
+    });
+
+    assert.equal(result.ok, true);
+    assert.ok(result.checks.some((item) => item.name === "probe.models" && item.ok));
+    assert.ok(result.checks.some((item) => item.name === "probe.chat" && item.ok));
+    assert.ok(result.checks.some((item) => item.name === "probe.chat.stream" && item.ok));
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("probeEndpoint reports contract checks", async () => {
+  const server = await startServer({ dryRun: true, port: 0 });
+  const { port } = server.address();
+
+  try {
+    const result = await probeEndpoint({
+      baseURL: `http://127.0.0.1:${port}/v1`,
+      model: "openfusion/fusion"
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.checks.length, 3);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 test("init creates config and refuses overwrite unless forced", async () => {
