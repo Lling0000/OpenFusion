@@ -19,7 +19,8 @@
     "cli": "node src/cli.js",
     "test": "node --test",
     "doctor": "node src/cli.js doctor",
-    "smoke": "node src/cli.js --dry-run \"Debug this flaky React test and propose a patch\" --json"
+    "smoke": "node src/cli.js --dry-run \"Debug this flaky React test and propose a patch\" --json",
+    "check": "node scripts/check-release.js"
   },
   "keywords": [
     "openrouter",

@@ -2,6 +2,9 @@
 
 > A local, inspectable multi-model fusion router for coding agents.
 
+[![CI](https://github.com/Lling0000/OpenFusion/actions/workflows/ci.yml/badge.svg)](https://github.com/Lling0000/OpenFusion/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 OpenFusion exposes one OpenAI-compatible endpoint and fans each request out to a small role-based panel, such as `coder`, `reasoner`, `verifier`, and `writer`. It then judges disagreements and synthesizes one final answer, while returning a trace you can inspect.
 
 Use it when you want Codex, OpenCode, Aider, editor agents, or custom scripts to talk to a single local gateway instead of hard-coding one upstream model for every task.
@@ -232,6 +235,8 @@ OpenFusion is intentionally small, so focused contributions are welcome.
 - Add eval receipts comparing single-model and fused answers.
 - Add a trace viewer for panel answers, judge notes, and final synthesis.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development commands and pull request guidelines.
+
 ## Privacy And Limits
 
 - Dry-run mode sends no prompt data upstream.
@@ -246,7 +251,10 @@ OpenFusion is intentionally small, so focused contributions are welcome.
 npm test
 npm run smoke
 npm run doctor
+npm run check
 ```
+
+See [docs/release-checklist.md](docs/release-checklist.md) for the local release checklist and manual smoke commands. See [SECURITY.md](SECURITY.md) for secret-handling and vulnerability reporting guidance.
 
 ## License
 

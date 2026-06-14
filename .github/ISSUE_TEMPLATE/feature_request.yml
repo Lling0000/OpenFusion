@@ -1,0 +1,34 @@
+name: Feature request
+description: Suggest a focused OpenFusion improvement.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What developer workflow or compatibility issue should OpenFusion improve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should change?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - routing
+        - tool-calling
+        - streaming
+        - Codex/API relay setup
+        - provider compatibility
+        - documentation
+        - other
+    validations:
+      required: true
