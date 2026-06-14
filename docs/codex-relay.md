@@ -67,6 +67,7 @@ The probe checks:
 - `GET /models`
 - `POST /chat/completions`
 - `POST /chat/completions` with `stream: true`
+- Tool-call round-trip: first assistant `tool_calls`, then follow-up `role: "tool"` message
 
 ## 3. Start OpenFusion
 

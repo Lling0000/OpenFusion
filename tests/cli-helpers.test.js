@@ -53,6 +53,7 @@ test("doctor can probe an OpenAI-compatible endpoint", async () => {
     assert.ok(result.checks.some((item) => item.name === "probe.models" && item.ok));
     assert.ok(result.checks.some((item) => item.name === "probe.chat" && item.ok));
     assert.ok(result.checks.some((item) => item.name === "probe.chat.stream" && item.ok));
+    assert.ok(result.checks.some((item) => item.name === "probe.tool.roundtrip" && item.ok));
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -69,7 +70,8 @@ test("probeEndpoint reports contract checks", async () => {
     });
 
     assert.equal(result.ok, true);
-    assert.equal(result.checks.length, 3);
+    assert.equal(result.checks.length, 4);
+    assert.ok(result.checks.some((item) => item.name === "probe.tool.roundtrip"));
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

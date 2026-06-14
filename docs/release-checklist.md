@@ -30,6 +30,8 @@ Probe it:
 node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1
 ```
 
+The probe covers `/models`, regular chat completions, SSE-style streaming, and a tool-call round-trip.
+
 Test a tool-call passthrough request:
 
 ```bash

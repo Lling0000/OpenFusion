@@ -14,6 +14,7 @@ export async function probeEndpoint({
   checks.push(await probeModels({ root, apiKey, timeoutMs }));
   checks.push(await probeChat({ root, model, apiKey, timeoutMs, stream: false }));
   checks.push(await probeChat({ root, model, apiKey, timeoutMs, stream: true }));
+  checks.push(await probeToolRoundtrip({ root, model, apiKey, timeoutMs }));
 
   return {
     ok: checks.every((item) => item.ok),
@@ -21,6 +22,83 @@ export async function probeEndpoint({
     model,
     checks
   };
+}
+
+async function probeToolRoundtrip({ root, model, apiKey, timeoutMs }) {
+  try {
+    const first = await timedFetch(`${root}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...authHeaders(apiKey)
+      },
+      body: JSON.stringify({
+        model,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "openfusion_probe_tool",
+              description: "Probe whether tool calls round-trip correctly.",
+              parameters: {
+                type: "object",
+                properties: {}
+              }
+            }
+          }
+        ],
+        tool_choice: {
+          type: "function",
+          function: {
+            name: "openfusion_probe_tool"
+          }
+        },
+        messages: [
+          {
+            role: "user",
+            content: "Call the probe tool."
+          }
+        ]
+      })
+    }, timeoutMs);
+    const firstPayload = safeJson(await first.text());
+    const toolCall = firstPayload?.choices?.[0]?.message?.tool_calls?.[0];
+
+    if (!first.ok || !toolCall?.id || toolCall?.function?.name !== "openfusion_probe_tool") {
+      return check("probe.tool.roundtrip", false, `Tool call request returned ${first.status} without a usable tool_call.`);
+    }
+
+    const second = await timedFetch(`${root}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...authHeaders(apiKey)
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: "user",
+            content: "Call the probe tool."
+          },
+          firstPayload.choices[0].message,
+          {
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: "{\"ok\":true}"
+          }
+        ]
+      })
+    }, timeoutMs);
+    const secondPayload = safeJson(await second.text());
+    const ok = second.ok
+      && secondPayload?.object === "chat.completion"
+      && typeof secondPayload?.choices?.[0]?.message?.content === "string";
+
+    return check("probe.tool.roundtrip", ok, `Tool follow-up returned ${second.status}.`);
+  } catch (error) {
+    return check("probe.tool.roundtrip", false, error.message);
+  }
 }
 
 async function probeModels({ root, apiKey, timeoutMs }) {

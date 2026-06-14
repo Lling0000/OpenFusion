@@ -101,6 +101,12 @@ export OPENROUTER_API_KEY="..."
 node src/cli.js doctor --real
 ```
 
+Use `--probe-url` to verify an OpenAI-compatible endpoint, including chat, basic streaming, and tool-call round-trip behavior:
+
+```bash
+node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1
+```
+
 ## Use With Codex Or An API Relay
 
 Create a config file:
