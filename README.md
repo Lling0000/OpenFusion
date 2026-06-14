@@ -1,64 +1,34 @@
 # OpenFusion
 
-The local AI gateway for coding agents.
+> A local, inspectable multi-model fusion router for coding agents.
 
-Use Codex, OpenCode, Aider, custom scripts, and OpenAI SDK clients through one OpenAI-compatible router. OpenFusion can route tasks by intent, ask a small specialist panel, judge disagreements, and synthesize one final answer while keeping the orchestration transparent.
+OpenFusion exposes one OpenAI-compatible endpoint and fans each request out to a small role-based panel, such as `coder`, `reasoner`, `verifier`, and `writer`. It then judges disagreements and synthesizes one final answer, while returning a trace you can inspect.
 
-It is inspired by OpenRouter's public `openrouter/fusion` idea, but designed to be local-first, inspectable, and easy to adapt to your own API relay.
+Use it when you want Codex, OpenCode, Aider, editor agents, or custom scripts to talk to a single local gateway instead of hard-coding one upstream model for every task.
 
-```bash
-npm test
-node src/cli.js --dry-run "Debug this flaky React test and propose a patch" --json
-```
+- Local-first gateway: run it in front of OpenRouter or any OpenAI-compatible relay.
+- Transparent fusion: inspect route scores, selected roles, judge, and synthesizer.
+- Coding-agent focused: debugging, review, architecture tradeoffs, tests, and docs.
+- Dry-run friendly: try routing and orchestration without an API key.
+- Small by design: zero runtime dependencies, plain Node.js, easy to fork.
 
-Example dry-run route:
+LiteLLM routes LLM API calls. OpenFusion focuses on routing coding-agent work.
 
-```json
-{
-  "selectedRoles": ["coder", "verifier", "fast"],
-  "rationale": "Selected coder, verifier, fast because the prompt contains coding/debugging signals."
-}
-```
-
-## Why
-
-One model is rarely best at everything. Coding, planning, verification, and writing reward different strengths. OpenRouter's Fusion router shows a productized version of this idea: multi-model deliberation behind a single model slug. OpenFusion makes a small open-source version you can run locally in front of your own API relay.
-
-This is especially useful when your Codex or editor setup already talks to an API relay. Instead of hard-coding one model for every task, OpenFusion can expose one local OpenAI-compatible endpoint and decide which upstream model roles should collaborate for each question.
-
-LiteLLM routes LLM API calls. OpenFusion focuses on routing coding-agent work: debugging, review, architecture tradeoffs, tests, and final answer synthesis.
-
-## Features
-
-- OpenAI-compatible local endpoint: `POST /v1/chat/completions`.
-- Model listing endpoint: `GET /v1/models`.
-- Debug route endpoint: `POST /debug/route`.
-- Zero-dependency Node.js CLI and server.
-- Transparent `route -> panel -> judge -> synthesize` pipeline.
-- Works with OpenRouter or any OpenAI-compatible API relay.
-- Dry-run mode for local testing without API keys.
-- JSON trace showing selected model roles and orchestration metadata.
-- Configurable role-to-model mapping.
-
-## Quickstart
+## Try It In 30 Seconds
 
 ```bash
 git clone https://github.com/Lling0000/OpenFusion.git
 cd OpenFusion
-npm test
-npm run smoke
+node src/cli.js doctor
+node src/cli.js --dry-run "Review this patch for security risks and missing tests" --json
 ```
 
-Run the CLI without sending data upstream:
+Dry-run mode does not send prompts upstream. It uses a mock client so you can inspect routing and orchestration locally.
+
+Start a local OpenAI-compatible server:
 
 ```bash
-node src/cli.js --dry-run "Compare two architectures for a Codex API relay" --json
-```
-
-Run as a local OpenAI-compatible server:
-
-```bash
-node src/cli.js --server --dry-run --port 8787
+node src/cli.js serve --dry-run --port 8787
 ```
 
 Call it like a normal chat completions endpoint:
@@ -71,13 +41,13 @@ curl http://localhost:8787/v1/chat/completions \
     "messages": [
       {
         "role": "user",
-        "content": "Review this API relay design for security risks and test gaps"
+        "content": "Debug this flaky API test and propose a minimal patch"
       }
     ]
   }'
 ```
 
-Inspect routing without calling upstream:
+Inspect routing without running the full pipeline:
 
 ```bash
 curl http://localhost:8787/debug/route \
@@ -93,18 +63,47 @@ curl http://localhost:8787/debug/route \
   }'
 ```
 
-## Use With A Real Relay
+## Why
 
-Copy the example config:
+One model is rarely best at everything. Coding, planning, verification, and writing reward different strengths. OpenRouter's Fusion router shows a productized version of this idea: multi-model deliberation behind a single model slug. OpenFusion makes a small open-source version you can run locally in front of your own API relay.
+
+This is especially useful when your Codex or editor setup already talks to an API relay. Instead of hard-coding one model for every task, OpenFusion can expose one local OpenAI-compatible endpoint and decide which upstream model roles should collaborate for each question.
+
+## Features
+
+- OpenAI-compatible local endpoint: `POST /v1/chat/completions`.
+- Model listing endpoint: `GET /v1/models`.
+- Debug route endpoint: `POST /debug/route`.
+- CLI commands: `init`, `models`, `doctor`, `serve`, and `chat`.
+- Transparent `route -> panel -> judge -> synthesize` pipeline.
+- Works with OpenRouter or any OpenAI-compatible API relay.
+- Dry-run mode for local testing without API keys.
+- JSON trace showing selected model roles and orchestration metadata.
+- Configurable role-to-model mapping.
+
+## CLI
 
 ```bash
-cp examples/openfusion.config.example.json openfusion.config.json
+node src/cli.js init
+node src/cli.js models
+node src/cli.js doctor
+node src/cli.js chat --dry-run "Compare two architectures for a Codex API relay" --json
+node src/cli.js serve --dry-run --port 8787
 ```
 
-Set your API key:
+`doctor` checks configuration, role mappings, judge/synthesizer settings, and the dry-run fusion pipeline. Pass `--real` after setting your upstream key to test a real relay.
 
 ```bash
 export OPENROUTER_API_KEY="..."
+node src/cli.js doctor --real
+```
+
+## Use With Codex Or An API Relay
+
+Create a config file:
+
+```bash
+node src/cli.js init
 ```
 
 Edit `openfusion.config.json` if your relay uses a different base URL or environment variable:
@@ -118,11 +117,53 @@ Edit `openfusion.config.json` if your relay uses a different base URL or environ
 }
 ```
 
-Run a real upstream fusion call:
+Start OpenFusion:
 
 ```bash
-node src/cli.js --config openfusion.config.json "Debug this failing test and propose a minimal patch"
+YOUR_RELAY_API_KEY="..." node src/cli.js serve --config openfusion.config.json --port 8787
 ```
+
+Point Codex or another OpenAI-compatible client at:
+
+```text
+base_url = http://127.0.0.1:8787/v1
+api_key = any-local-placeholder
+model = openfusion/fusion
+```
+
+OpenFusion will receive the local request, choose a role panel, call your upstream relay, and return a normal chat completion.
+
+## What The Trace Shows
+
+OpenFusion returns a normal chat completion response plus an `openfusion` trace:
+
+```json
+{
+  "model": "openfusion/fusion",
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "Final synthesized answer..."
+      }
+    }
+  ],
+  "openfusion": {
+    "route": {
+      "selectedRoles": ["coder", "verifier", "fast"],
+      "rationale": "Selected coder, verifier, fast because the prompt contains coding/debugging and verification signals."
+    },
+    "panel": [
+      { "role": "coder", "model": "deepseek/deepseek-chat-v3-0324" },
+      { "role": "verifier", "model": "google/gemini-2.5-pro" }
+    ],
+    "judge": { "role": "verifier", "model": "google/gemini-2.5-pro" },
+    "synthesizer": { "role": "writer", "model": "openai/gpt-4.1" }
+  }
+}
+```
+
+Strict OpenAI SDK clients can ignore the extra `openfusion` field. Debugging tools can use it to explain why a request was routed to a specific panel.
 
 ## How It Works
 
@@ -134,36 +175,37 @@ OpenFusion is deliberately small:
 4. `src/openaiClient.js` calls an OpenAI-compatible `/chat/completions` upstream.
 5. `src/server.js` exposes a local `/v1/chat/completions` endpoint.
 
-The response includes normal OpenAI-compatible fields plus an `openfusion` trace. Strict clients can ignore this unknown field; debugging tools can use it to show which roles and upstream models were involved.
+## Compatibility
 
-```json
-{
-  "model": "openfusion/fusion",
-  "choices": [
-    {
-      "message": {
-        "role": "assistant",
-        "content": "..."
-      }
-    }
-  ],
-  "openfusion": {
-    "route": "...",
-    "panel": [
-      { "role": "coder", "model": "deepseek/deepseek-chat-v3-0324" }
-    ]
-  }
-}
-```
+OpenFusion implements a small OpenAI-compatible surface for local routing.
+
+| Capability | Status | Notes |
+| --- | --- | --- |
+| `POST /v1/chat/completions` | Supported | Non-streaming chat completions. |
+| `GET /v1/models` | Supported | Lists virtual OpenFusion models and role models. |
+| `POST /debug/route` | Supported | Shows selected roles and routing rationale without running the full pipeline. |
+| Streaming responses | Planned | Listed on the roadmap; not yet implemented. |
+| Tool calls / function calling | Planned | Provider compatibility work is still needed. |
+| Embeddings, images, audio | Not supported | OpenFusion currently focuses on coding-agent chat workflows. |
 
 ## OpenRouter Fusion Notes
 
 OpenRouter documents Fusion as `openrouter/fusion`, a model slug that performs multi-model deliberation in a single API call. Their docs describe a panel, a judge, and a final answer. See:
 
 - <https://openrouter.ai/docs/guides/routing/routers/fusion-router>
+- <https://openrouter.ai/docs/guides/features/server-tools/fusion>
+- <https://openrouter.ai/docs/guides/features/plugins/fusion>
 - <https://openrouter.ai/openrouter/fusion>
 
 OpenFusion does not claim to reproduce OpenRouter's private routing logic. It is a transparent local pattern you can inspect, test, and adapt.
+
+## Project Status
+
+OpenFusion is an early, working prototype for local multi-model orchestration.
+
+It is useful today for experimenting with role-based routing, dry-run traces, and OpenAI-compatible relay integration. It is not yet a production gateway: streaming, tool-call passthrough, provider-specific quirks, budget controls, and eval receipts are still on the roadmap.
+
+If you adopt it, keep tests, code review, and domain-specific validation in the loop. Fusion improves coverage of perspectives; it does not guarantee correctness.
 
 ## Roadmap
 
@@ -175,6 +217,16 @@ OpenFusion does not claim to reproduce OpenRouter's private routing logic. It is
 - Compatibility doctor for provider quirks: tool calls, streaming, usage chunks, and headers.
 - Worktree fanout mode for trying multiple coding agents and letting tests judge the winner.
 - Web trace viewer for panel answers and judge decisions.
+
+## Good First Contributions
+
+OpenFusion is intentionally small, so focused contributions are welcome.
+
+- Add adapter presets for Codex, Aider, OpenCode, Continue, Cline, and LiteLLM.
+- Add provider compatibility tests for OpenRouter and other OpenAI-compatible relays.
+- Add streaming support for `/v1/chat/completions`.
+- Add eval receipts comparing single-model and fused answers.
+- Add a trace viewer for panel answers, judge notes, and final synthesis.
 
 ## Privacy And Limits
 
@@ -188,6 +240,7 @@ OpenFusion does not claim to reproduce OpenRouter's private routing logic. It is
 ```bash
 npm test
 npm run smoke
+npm run doctor
 ```
 
 ## License

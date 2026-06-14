@@ -31,6 +31,10 @@ export function mergeConfig(base, override) {
   return output;
 }
 
+export function configTemplate() {
+  return `${JSON.stringify(defaultConfig, null, 2)}\n`;
+}
+
 function isPlainObject(value) {
   return value && typeof value === "object" && !Array.isArray(value);
 }

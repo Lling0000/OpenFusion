@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "description": "Local multi-model fusion router for OpenAI-compatible API relays.",
   "type": "module",
+  "homepage": "https://github.com/Lling0000/OpenFusion#readme",
+  "bugs": {
+    "url": "https://github.com/Lling0000/OpenFusion/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lling0000/OpenFusion.git"
+  },
   "bin": {
     "openfusion": "./src/cli.js"
   },
@@ -10,6 +18,7 @@
     "start": "node src/server.js",
     "cli": "node src/cli.js",
     "test": "node --test",
+    "doctor": "node src/cli.js doctor",
     "smoke": "node src/cli.js --dry-run \"Debug this flaky React test and propose a patch\" --json"
   },
   "keywords": [
@@ -22,7 +31,7 @@
     "model-router",
     "ensemble"
   ],
-  "author": "",
+  "author": "Lling0000",
   "license": "MIT",
   "engines": {
     "node": ">=20"

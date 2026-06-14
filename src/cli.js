@@ -3,18 +3,62 @@ import { loadConfig } from "./config.js";
 import { MockChatClient } from "./mockClient.js";
 import { OpenAICompatibleClient } from "./openaiClient.js";
 import { runFusion } from "./fusion.js";
+import { initConfig } from "./init.js";
+import { runDoctor } from "./doctor.js";
+import { listModels } from "./models.js";
 
 const args = parseArgs(process.argv.slice(2));
 
-if (args.help || (!args.question && !args.server)) {
-  printHelp();
-  process.exit(args.help ? 0 : 1);
+if (import.meta.url === `file://${process.argv[1]}`) {
+  await main(args);
 }
 
-if (args.server) {
-  const { startServer } = await import("./server.js");
-  await startServer({ configPath: args.config, dryRun: args.dryRun, port: args.port });
-} else {
+export async function main(args) {
+  if (args.help || (!args.command && !args.question && !args.server)) {
+    printHelp();
+    return args.help ? 0 : 1;
+  }
+
+  if (args.command === "init") {
+    const result = await initConfig({ path: args.output, force: args.force });
+    console.log(result.message);
+    return 0;
+  }
+
+  if (args.command === "models") {
+    const config = await loadConfig(args.config);
+    const models = listModels(config);
+    if (args.json) {
+      console.log(JSON.stringify(models, null, 2));
+    } else {
+      for (const model of models) {
+        const suffix = model.upstream_model ? ` -> ${model.upstream_model}` : "";
+        console.log(`${model.id.padEnd(22)} ${model.kind}${suffix}`);
+      }
+    }
+    return 0;
+  }
+
+  if (args.command === "doctor") {
+    const config = await loadConfig(args.config);
+    const result = await runDoctor({ config, real: args.real });
+    if (args.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(`OpenFusion doctor (${result.mode})`);
+      for (const item of result.checks) {
+        console.log(`${item.ok ? "PASS" : "FAIL"} ${item.name}: ${item.message}`);
+      }
+    }
+    return result.ok ? 0 : 1;
+  }
+
+  if (args.server) {
+    const { startServer } = await import("./server.js");
+    await startServer({ configPath: args.config, dryRun: args.dryRun, port: args.port });
+    return 0;
+  }
+
   const config = await loadConfig(args.config);
   const client = args.dryRun ? new MockChatClient() : createUpstreamClient(config);
   const result = await runFusion({ question: args.question, config, client });
@@ -24,6 +68,8 @@ if (args.server) {
   } else {
     printHuman(result);
   }
+
+  return 0;
 }
 
 export function parseArgs(argv) {
@@ -32,17 +78,26 @@ export function parseArgs(argv) {
     json: false,
     help: false,
     server: false,
+    real: false,
+    force: false,
     port: Number(process.env.PORT || 8787)
   };
   const questionParts = [];
+  const commands = new Set(["init", "models", "doctor", "serve", "chat"]);
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === "--dry-run") parsed.dryRun = true;
+    if (!parsed.command && commands.has(arg)) {
+      parsed.command = arg;
+      if (arg === "serve") parsed.server = true;
+    } else if (arg === "--dry-run") parsed.dryRun = true;
     else if (arg === "--json") parsed.json = true;
     else if (arg === "--help" || arg === "-h") parsed.help = true;
     else if (arg === "--server") parsed.server = true;
+    else if (arg === "--real") parsed.real = true;
+    else if (arg === "--force") parsed.force = true;
     else if (arg === "--config") parsed.config = argv[++index];
+    else if (arg === "--output" || arg === "-o") parsed.output = argv[++index];
     else if (arg === "--port") parsed.port = Number(argv[++index]);
     else questionParts.push(arg);
   }
@@ -75,10 +130,18 @@ function printHelp() {
   console.log(`OpenFusion - local multi-model fusion for OpenAI-compatible relays
 
 Usage:
+  openfusion init [--output openfusion.config.json] [--force]
+  openfusion models [--json] [--config openfusion.config.json]
+  openfusion doctor [--real] [--json] [--config openfusion.config.json]
+  openfusion serve [--dry-run] [--port 8787]
+  openfusion chat [--dry-run] [--json] "your question"
   openfusion [--dry-run] [--json] [--config openfusion.config.json] "your question"
   openfusion --server [--dry-run] [--port 8787]
 
 Examples:
+  node src/cli.js init
+  node src/cli.js doctor
+  node src/cli.js models
   node src/cli.js --dry-run "Review this API design for security and tests"
   node src/cli.js --server --dry-run --port 8787
 `);
