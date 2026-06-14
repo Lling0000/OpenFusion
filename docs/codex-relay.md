@@ -30,6 +30,9 @@ Edit `openfusion.config.json`:
     "apiKeyEnv": "YOUR_RELAY_API_KEY",
     "appName": "OpenFusion",
     "siteURL": "https://github.com/Lling0000/OpenFusion"
+  },
+  "fusion": {
+    "toolRole": "writer"
   }
 }
 ```
@@ -89,7 +92,17 @@ If your Codex installation already points at an API relay, replace that relay UR
 
 OpenFusion currently preserves the full chat `messages` transcript and supports normal JSON responses plus SSE-style `stream: true` responses.
 
-Tool calls are intentionally rejected with a clear `501 tool_calls_unsupported` error until passthrough support is implemented. This is safer than silently dropping `tools` or `tool_choice`, because coding agents often depend on those fields for correct behavior.
+Tool calls use a basic passthrough path. If a request includes `tools`, `tool_choice`, `parallel_tool_calls`, `role: "tool"`, or an assistant message with `tool_calls`, OpenFusion bypasses multi-model fusion and sends the request to one upstream model.
+
+This is intentional: coding agents often depend on a strict tool-call protocol, and mixing multiple panel responses into one tool-call turn would be unsafe. Fusion still applies to ordinary assistant-answer requests; tool turns preserve protocol continuity first.
+
+Selection rules:
+
+- `model: "openfusion/<role>"` uses that role's configured upstream model.
+- `model: "openfusion/fusion"` or `model: "openfusion/auto"` uses `fusion.toolRole`.
+- The default `fusion.toolRole` is `writer`; configure it to a model that your upstream relay has verified for tool/function calling.
+
+OpenFusion forwards the upstream response shape through the local OpenAI-compatible response and adds `openfusion.mode = "tool-passthrough"` trace metadata. OpenFusion does not execute tools; the client remains responsible for running tools and sending follow-up `role: "tool"` messages.
 
 ## Debug A Route
 

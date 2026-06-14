@@ -48,6 +48,16 @@ export async function startServer({ configPath, dryRun = false, port = Number(pr
       if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
         const body = await readJson(request);
         validateChatRequest(body);
+
+        if (hasToolFields(body)) {
+          const payload = await runToolPassthrough({ body, config, client });
+          if (body.stream) {
+            return sendSseCompletion(response, payload);
+          }
+
+          return sendJson(response, 200, payload);
+        }
+
         const result = await runFusion({ messages: body.messages, config, client });
         const payload = toOpenAIResponse(result, body.model ?? "openfusion/fusion");
 
@@ -95,10 +105,102 @@ function validateChatRequest(body) {
   if (!Array.isArray(body.messages) || body.messages.length === 0) {
     throw httpError(400, "invalid_request_error", "Expected a non-empty messages array.", "invalid_messages", "messages");
   }
+}
 
-  if (body.tools || body.tool_choice || body.parallel_tool_calls) {
-    throw httpError(501, "unsupported_feature", "Tool calls are not supported yet. Remove tools/tool_choice or follow the roadmap issue for passthrough support.", "tool_calls_unsupported", "tools");
+function hasToolFields(body) {
+  return Boolean(
+    body.tools
+    || body.tool_choice
+    || body.parallel_tool_calls
+    || body.messages?.some((message) => message.role === "tool" || message.tool_calls)
+  );
+}
+
+async function runToolPassthrough({ body, config, client }) {
+  const requestedModel = body.model ?? "openfusion/coder";
+  const upstreamModel = resolveUpstreamModel(requestedModel, config, { toolPassthrough: true });
+  const upstreamPayload = await client.completeChat({
+    ...pickPassthroughBody(body),
+    model: upstreamModel
+  });
+
+  return {
+    ...normalizeChatCompletion(upstreamPayload, requestedModel),
+    openfusion: {
+      mode: "tool-passthrough",
+      requested_model: requestedModel,
+      upstream_model: upstreamModel,
+      reason: "Tool calls bypass fusion so the client can continue the tool-call protocol with one upstream model."
+    }
+  };
+}
+
+function resolveUpstreamModel(requestedModel, config, { toolPassthrough = false } = {}) {
+  if (requestedModel?.startsWith("openfusion/")) {
+    const role = requestedModel.split("/")[1];
+    if (config.roles[role]) {
+      return config.roles[role].model;
+    }
+
+    return toolPassthrough
+      ? config.roles[config.fusion.toolRole]?.model ?? config.roles[config.fusion.synthesizerRole].model
+      : config.roles[config.fusion.synthesizerRole].model;
   }
+
+  return requestedModel;
+}
+
+function pickPassthroughBody(body) {
+  const allowed = [
+    "messages",
+    "temperature",
+    "top_p",
+    "max_tokens",
+    "max_completion_tokens",
+    "stop",
+    "presence_penalty",
+    "frequency_penalty",
+    "seed",
+    "response_format",
+    "tools",
+    "tool_choice",
+    "parallel_tool_calls",
+    "user",
+    "metadata"
+  ];
+  const picked = {};
+
+  for (const key of allowed) {
+    if (body[key] !== undefined) {
+      picked[key] = body[key];
+    }
+  }
+
+  return picked;
+}
+
+function normalizeChatCompletion(payload, requestedModel) {
+  return {
+    id: payload.id ?? `chatcmpl-openfusion-${Date.now()}`,
+    object: payload.object ?? "chat.completion",
+    created: payload.created ?? Math.floor(Date.now() / 1000),
+    model: requestedModel,
+    choices: payload.choices ?? [
+      {
+        index: 0,
+        finish_reason: "stop",
+        message: {
+          role: "assistant",
+          content: ""
+        }
+      }
+    ],
+    usage: payload.usage ?? {
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_tokens: 0
+    }
+  };
 }
 
 function transcriptFromChatBody(body) {
@@ -195,6 +297,13 @@ function sendSseCompletion(response, payload) {
     connection: "keep-alive"
   });
 
+  const message = payload.choices[0].message;
+  const delta = {
+    role: message.role ?? "assistant",
+    ...(message.content !== undefined && message.content !== null ? { content: message.content } : {}),
+    ...(message.tool_calls ? { tool_calls: message.tool_calls } : {})
+  };
+
   const chunk = {
     id: payload.id,
     object: "chat.completion.chunk",
@@ -203,10 +312,7 @@ function sendSseCompletion(response, payload) {
     choices: [
       {
         index: 0,
-        delta: {
-          role: "assistant",
-          content: payload.choices[0].message.content
-        },
+        delta,
         finish_reason: null
       }
     ],

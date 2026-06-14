@@ -32,6 +32,7 @@ export const defaultConfig = {
     maxPanel: 4,
     judgeRole: "verifier",
     synthesizerRole: "writer",
+    toolRole: "writer",
     timeoutMs: 90000
   }
 };

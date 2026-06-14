@@ -187,7 +187,7 @@ OpenFusion implements a small OpenAI-compatible surface for local routing.
 | `GET /v1/models` | Supported | Lists virtual OpenFusion models and role models. |
 | `POST /debug/route` | Supported | Shows selected roles and routing rationale without running the full pipeline. |
 | Streaming responses | Basic support | Returns SSE-compatible chunks after the fusion result is ready. Token-by-token streaming is planned. |
-| Tool calls / function calling | Explicitly unsupported | Returns `501 tool_calls_unsupported` instead of silently dropping tool fields. |
+| Tool calls / function calling | Basic passthrough | Requests with `tools`, `tool_choice`, `parallel_tool_calls`, `role: "tool"`, or assistant `tool_calls` bypass fusion and go to one upstream model so the tool-call protocol is preserved. |
 | Embeddings, images, audio | Not supported | OpenFusion currently focuses on coding-agent chat workflows. |
 
 ## OpenRouter Fusion Notes
@@ -217,6 +217,7 @@ If you adopt it, keep tests, code review, and domain-specific validation in the 
 - Eval receipts comparing single-model vs fusion answers.
 - Adapter presets for Codex, OpenCode, Continue, Cline, Aider, and LiteLLM.
 - Deeper compatibility doctor checks for provider quirks: tool calls, usage chunks, and headers.
+- Fusion-aware tool orchestration after the single-model passthrough path is stable.
 - Worktree fanout mode for trying multiple coding agents and letting tests judge the winner.
 - Web trace viewer for panel answers and judge decisions.
 
@@ -227,6 +228,7 @@ OpenFusion is intentionally small, so focused contributions are welcome.
 - Add adapter presets for Codex, Aider, OpenCode, Continue, Cline, and LiteLLM.
 - Add provider compatibility tests for OpenRouter and other OpenAI-compatible relays.
 - Add token-by-token streaming support for `/v1/chat/completions`.
+- Improve tool-call passthrough and add tool-call round-trip fixtures.
 - Add eval receipts comparing single-model and fused answers.
 - Add a trace viewer for panel answers, judge notes, and final synthesis.
 
@@ -234,6 +236,7 @@ OpenFusion is intentionally small, so focused contributions are welcome.
 
 - Dry-run mode sends no prompt data upstream.
 - Real mode sends your prompt to each selected upstream model role.
+- Tool-call passthrough sends a tool turn to one upstream model only, using `fusion.toolRole` by default for virtual models.
 - Do not put secrets in prompts or config files.
 - OpenFusion is an orchestration layer, not a guarantee that a fused answer is correct. Keep tests, review, and domain-specific validation in the loop.
 

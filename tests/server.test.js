@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { startServer } from "../src/server.js";
+import { defaultConfig } from "../src/defaultConfig.js";
 
 test("serves OpenAI-compatible models and chat completions", async () => {
   const server = await startServer({ dryRun: true, port: 0 });
@@ -66,7 +67,7 @@ test("returns SSE chunks for stream requests", async () => {
   }
 });
 
-test("rejects unsupported tool calls with an OpenAI-like error", async () => {
+test("passes tool calls through one upstream model instead of fusion", async () => {
   const server = await startServer({ dryRun: true, port: 0 });
   const { port } = server.address();
 
@@ -77,14 +78,111 @@ test("rejects unsupported tool calls with an OpenAI-like error", async () => {
       body: JSON.stringify({
         model: "openfusion/fusion",
         tools: [{ type: "function", function: { name: "run_tests", parameters: {} } }],
+        tool_choice: { type: "function", function: { name: "run_tests" } },
         messages: [{ role: "user", content: "Call a tool" }]
       })
     });
     const body = await response.json();
 
-    assert.equal(response.status, 501);
-    assert.equal(body.error.code, "tool_calls_unsupported");
-    assert.equal(body.error.param, "tools");
+    assert.equal(response.status, 200);
+    assert.equal(body.object, "chat.completion");
+    assert.equal(body.openfusion.mode, "tool-passthrough");
+    assert.equal(body.openfusion.requested_model, "openfusion/fusion");
+    assert.equal(body.openfusion.upstream_model, defaultConfig.roles[defaultConfig.fusion.toolRole].model);
+    assert.equal(body.choices[0].finish_reason, "tool_calls");
+    assert.equal(body.choices[0].message.tool_calls[0].function.name, "run_tests");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("honors explicit role models for tool passthrough", async () => {
+  const server = await startServer({ dryRun: true, port: 0 });
+  const { port } = server.address();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "openfusion/coder",
+        tools: [{ type: "function", function: { name: "run_tests", parameters: {} } }],
+        tool_choice: { type: "function", function: { name: "run_tests" } },
+        messages: [{ role: "user", content: "Call a tool" }]
+      })
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.openfusion.upstream_model, defaultConfig.roles.coder.model);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("bypasses fusion for tool result follow-up messages", async () => {
+  const server = await startServer({ dryRun: true, port: 0 });
+  const { port } = server.address();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "openfusion/fusion",
+        messages: [
+          { role: "user", content: "Inspect a file" },
+          {
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "call_1",
+                type: "function",
+                function: { name: "inspect_file", arguments: "{}" }
+              }
+            ]
+          },
+          {
+            role: "tool",
+            tool_call_id: "call_1",
+            content: "file contents"
+          }
+        ]
+      })
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.openfusion.mode, "tool-passthrough");
+    assert.equal(body.choices[0].message.content, "OpenFusion mock passthrough response.");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("streams tool passthrough responses as SSE chunks", async () => {
+  const server = await startServer({ dryRun: true, port: 0 });
+  const { port } = server.address();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "openfusion/coder",
+        stream: true,
+        tools: [{ type: "function", function: { name: "inspect_file", parameters: {} } }],
+        tool_choice: { type: "function", function: { name: "inspect_file" } },
+        messages: [{ role: "user", content: "Inspect a file" }]
+      })
+    });
+
+    assert.equal(response.ok, true);
+    assert.match(response.headers.get("content-type"), /text\/event-stream/);
+    const body = await response.text();
+    assert.match(body, /tool-passthrough/);
+    assert.match(body, /data: \[DONE\]/);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

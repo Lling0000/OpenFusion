@@ -1,4 +1,28 @@
 export class MockChatClient {
+  async completeChat(request) {
+    const created = Math.floor(Date.now() / 1000);
+    const message = mockChatMessage(request);
+
+    return {
+      id: `chatcmpl-openfusion-mock-${created}`,
+      object: "chat.completion",
+      created,
+      model: request.model,
+      choices: [
+        {
+          index: 0,
+          finish_reason: message.tool_calls ? "tool_calls" : "stop",
+          message
+        }
+      ],
+      usage: {
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0
+      }
+    };
+  }
+
   async complete({ model, messages, metadata }) {
     const last = messages.at(-1)?.content ?? "";
     const role = metadata?.role ?? "model";
@@ -35,6 +59,41 @@ export class MockChatClient {
       content: `[${role}] ${mockSpecialistAnswer(role, last)}`
     };
   }
+}
+
+function mockChatMessage(request) {
+  if (request.tools?.length && request.tool_choice) {
+    const tool = chooseTool(request.tools, request.tool_choice);
+    if (tool) {
+      return {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_openfusion_mock",
+            type: "function",
+            function: {
+              name: tool.function.name,
+              arguments: JSON.stringify({ reason: "dry-run tool passthrough" })
+            }
+          }
+        ]
+      };
+    }
+  }
+
+  return {
+    role: "assistant",
+    content: "OpenFusion mock passthrough response."
+  };
+}
+
+function chooseTool(tools, toolChoice) {
+  if (typeof toolChoice === "object" && toolChoice.function?.name) {
+    return tools.find((tool) => tool.function?.name === toolChoice.function.name);
+  }
+
+  return tools.find((tool) => tool.type === "function");
 }
 
 function mockSpecialistAnswer(role, prompt) {
