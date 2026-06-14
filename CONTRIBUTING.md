@@ -18,12 +18,14 @@ Useful commands:
 npm test
 npm run smoke
 npm run doctor
+npm run check:providers
 node src/cli.js serve --dry-run --port 8787
 ```
 
 ## Good First Areas
 
 - Provider compatibility probes for OpenRouter, LiteLLM, vLLM, and custom relays.
+- Sanitized provider compatibility reports under `docs/providers/`.
 - Tool-call round-trip fixtures for Codex-style agent loops.
 - Better routing rules for coding, review, docs, and architecture prompts.
 - Token-by-token streaming.

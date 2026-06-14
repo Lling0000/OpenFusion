@@ -14,6 +14,7 @@ git status --short --branch
 - `npm test`
 - `npm run smoke`
 - `npm run doctor`
+- `node scripts/validate-provider-reports.js`
 - `node scripts/secret-scan.js`
 
 ## Manual Smoke

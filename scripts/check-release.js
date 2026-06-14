@@ -5,6 +5,7 @@ const checks = [
   ["npm", ["test"]],
   ["npm", ["run", "smoke"]],
   ["npm", ["run", "doctor"]],
+  ["node", ["scripts/validate-provider-reports.js"]],
   ["node", ["scripts/secret-scan.js"]]
 ];
 

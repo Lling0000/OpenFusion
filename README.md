@@ -157,7 +157,7 @@ model = openfusion/fusion
 OpenFusion will receive the local request, choose a role panel, call your upstream relay, and return a normal chat completion.
 
 See [docs/codex-relay.md](docs/codex-relay.md) for a more complete Codex/API relay setup guide, including `doctor --probe-url`.
-See [docs/providers](docs/providers) for compatibility report templates and community provider matrix guidance.
+See [docs/providers](docs/providers) for compatibility report templates and community provider matrix guidance. Provider reports are validated by `npm run check`.
 
 ## What The Trace Shows
 
@@ -251,6 +251,7 @@ OpenFusion is intentionally small, so focused contributions are welcome.
 
 - Add adapter presets for Codex, Aider, OpenCode, Continue, Cline, and LiteLLM.
 - Add provider compatibility tests for OpenRouter and other OpenAI-compatible relays.
+- Add sanitized provider compatibility reports under `docs/providers/`.
 - Add token-by-token streaming support for `/v1/chat/completions`.
 - Improve tool-call passthrough and add tool-call round-trip fixtures.
 - Add eval receipts comparing single-model and fused answers.
@@ -272,6 +273,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development commands and pull request
 npm test
 npm run smoke
 npm run doctor
+npm run check:providers
 npm run check
 ```
 

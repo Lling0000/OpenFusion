@@ -34,9 +34,9 @@ node src/cli.js compat --compat-config examples/compat.config.example.json
 3. Add a Markdown file under `docs/providers/`, for example `docs/providers/openrouter.md`.
 4. Include date, OpenFusion commit, provider/relay version when known, command used, and matrix output.
 
-Use this template:
+Use this template. Keep the command fenced as text if you paste this whole template into another Markdown file.
 
-```md
+~~~~md
 # Provider Name
 
 - Date: YYYY-MM-DD
@@ -44,9 +44,9 @@ Use this template:
 - Provider or relay version:
 - Command:
 
-```bash
+~~~bash
 node src/cli.js compat --target "provider|https://example.com/v1|model|API_KEY_ENV"
-```
+~~~
 
 ## Result
 
@@ -57,4 +57,4 @@ Paste matrix output here.
 - Any provider-specific caveats.
 - Whether tool calls require a specific model.
 - Whether streaming is token-by-token or buffered.
-```
+~~~~

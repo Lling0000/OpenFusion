@@ -20,7 +20,8 @@
     "test": "node --test",
     "doctor": "node src/cli.js doctor",
     "smoke": "node src/cli.js --dry-run \"Debug this flaky React test and propose a patch\" --json",
-    "check": "node scripts/check-release.js"
+    "check": "node scripts/check-release.js",
+    "check:providers": "node scripts/validate-provider-reports.js"
   },
   "keywords": [
     "openrouter",
