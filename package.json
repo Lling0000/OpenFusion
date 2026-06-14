@@ -1,0 +1,30 @@
+{
+  "name": "openfusion",
+  "version": "0.1.0",
+  "description": "Local multi-model fusion router for OpenAI-compatible API relays.",
+  "type": "module",
+  "bin": {
+    "openfusion": "./src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "cli": "node src/cli.js",
+    "test": "node --test",
+    "smoke": "node src/cli.js --dry-run \"Debug this flaky React test and propose a patch\" --json"
+  },
+  "keywords": [
+    "openrouter",
+    "fusion",
+    "llm",
+    "ai",
+    "codex",
+    "openai-compatible",
+    "model-router",
+    "ensemble"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
+}
