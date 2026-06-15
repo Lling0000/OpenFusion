@@ -151,6 +151,8 @@ Real doctor runs the fusion pipeline against the configured upstream:
 YOUR_RELAY_API_KEY="..." openfusion doctor --real --config openfusion.config.json
 ```
 
+If your relay routes to slower models, increase `fusion.timeoutMs` in `openfusion.config.json` before running real checks.
+
 Real comparison receipts call your relay through both paths:
 
 ```bash

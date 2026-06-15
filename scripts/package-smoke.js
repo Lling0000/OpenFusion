@@ -7,10 +7,12 @@ import { spawnSync } from "node:child_process";
 const tempDir = await mkdtemp(join(tmpdir(), "openfusion-package-"));
 const packDir = join(tempDir, "pack");
 const installDir = join(tempDir, "install");
+const npmCacheDir = join(tempDir, "npm-cache");
 
 try {
   await mkdir(packDir, { recursive: true });
   await mkdir(installDir, { recursive: true });
+  await mkdir(npmCacheDir, { recursive: true });
 
   const pack = run("npm", ["pack", "--json", "--pack-destination", packDir], { capture: true });
   const [artifact] = JSON.parse(pack.stdout);
@@ -59,6 +61,18 @@ try {
     throw new Error("Packaged openfusion receipt command did not return a valid phase trace receipt.");
   }
 
+  const comparison = run(binPath("openfusion"), ["compare", "--dry-run", "--json"], {
+    cwd: installDir,
+    capture: true
+  });
+  const comparisonJson = JSON.parse(comparison.stdout);
+  if (comparisonJson.schema !== "openfusion.comparison_receipt.v1" || comparisonJson.summary?.failed !== 0) {
+    throw new Error("Packaged openfusion compare command did not return a passing comparison receipt.");
+  }
+  if (!comparisonJson.summary?.routingDiversity?.hasDistinctPanels) {
+    throw new Error("Packaged openfusion compare command did not prove distinct fusion panels.");
+  }
+
   const adapter = run(binPath("openfusion"), ["adapter", "codex", "--json"], {
     cwd: installDir,
     capture: true
@@ -87,6 +101,10 @@ function run(command, args, { cwd = process.cwd(), capture = false, quiet = fals
   const result = spawnSync(command, args, {
     cwd,
     encoding: "utf8",
+    env: {
+      ...process.env,
+      npm_config_cache: process.env.npm_config_cache ?? npmCacheDir
+    },
     shell: process.platform === "win32",
     stdio: capture ? ["ignore", "pipe", "pipe"] : quiet ? "ignore" : "inherit"
   });

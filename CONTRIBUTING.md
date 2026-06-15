@@ -19,6 +19,7 @@ npm test
 npm run smoke
 npm run doctor
 npm run eval
+npm run compare
 npm run check:providers
 npm run check:examples
 npm run check:package
@@ -40,6 +41,7 @@ node src/cli.js serve --dry-run --port 8787
 - Keep changes focused.
 - Add tests for behavior changes.
 - Update README or docs when CLI/API behavior changes.
+- Update `CHANGELOG.md` for user-visible CLI, API, provider compatibility, or migration changes.
 - Do not commit real API keys, relay URLs with credentials, private prompts, or logs containing secrets.
 - Prefer clear compatibility behavior over silent fallback. If OpenFusion cannot support a field safely, make that visible.
 

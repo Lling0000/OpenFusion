@@ -290,7 +290,7 @@ OpenFusion will receive the local request, choose a role panel, call your upstre
 
 See [docs/codex-relay.md](docs/codex-relay.md) for a more complete Codex/API relay setup guide, including `doctor --probe-url`.
 See [docs/providers](docs/providers) for compatibility report templates and community provider matrix guidance. Provider reports are validated by `npm run check`.
-See [examples](examples) for copy-paste quickstart, tool passthrough, and provider compatibility scenarios.
+See [examples](examples) for copy-paste quickstart, tool passthrough, provider compatibility scenarios, and the real OpenRouter `verify.sh` Codex gateway smoke.
 Run `openfusion adapter codex` to print the exact local `base_url`, placeholder API key, startup commands, and verification steps for a Codex-style client. From a git checkout, use `node src/cli.js adapter codex`.
 
 ## What The Trace Shows
@@ -394,6 +394,7 @@ OpenFusion is intentionally small, so focused contributions are welcome.
 - Add a trace viewer for panel answers, judge notes, and final synthesis.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development commands and pull request guidelines.
+See [CHANGELOG.md](CHANGELOG.md) for release notes, compatibility changes, and migration notes.
 
 ## Privacy And Limits
 
@@ -410,6 +411,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development commands and pull request
 npm test
 npm run smoke
 npm run doctor
+npm run compare
 npm run check:providers
 npm run check:examples
 npm run check:package

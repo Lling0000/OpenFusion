@@ -15,6 +15,7 @@ git status --short --branch
 - `npm run smoke`
 - `npm run doctor`
 - `npm run eval`
+- `npm run compare`
 - `node scripts/validate-provider-reports.js`
 - `node scripts/validate-examples.js`
 - `node scripts/package-smoke.js`
@@ -95,6 +96,7 @@ curl http://127.0.0.1:8787/v1/chat/completions \
 
 - README compatibility table matches current behavior.
 - `docs/codex-relay.md` reflects the current Codex/API relay setup.
+- `CHANGELOG.md` includes user-visible CLI, API, provider compatibility, and migration notes.
 - Examples do not contain real credentials.
 - Roadmap does not claim unimplemented features as complete.
 

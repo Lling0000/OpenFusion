@@ -6,6 +6,7 @@ const checks = [
   ["npm", ["run", "smoke"]],
   ["npm", ["run", "doctor"]],
   ["npm", ["run", "eval"]],
+  ["npm", ["run", "compare"]],
   ["node", ["scripts/validate-provider-reports.js"]],
   ["node", ["scripts/validate-examples.js"]],
   ["node", ["scripts/package-smoke.js"]],

@@ -25,7 +25,7 @@ export async function runDoctor({ config, real = false, probeURL, probeModel = "
       apiKey,
       appName: config.upstream.appName,
       siteURL: config.upstream.siteURL,
-      timeoutMs: Math.min(config.fusion.timeoutMs, 30000)
+      timeoutMs: config.fusion.timeoutMs
     })
     : new MockChatClient();
 

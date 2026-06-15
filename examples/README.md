@@ -17,7 +17,7 @@ Expected result: a `Single-vs-Fusion Comparison Receipt` where the same built-in
 - [eval-receipt](eval-receipt/README.md): generate routing/orchestration receipts for built-in cases or one prompt.
 - [tool-passthrough](tool-passthrough/README.md): see why Codex-style tool calls bypass multi-model fusion and stay on one upstream model.
 - [provider-compat](provider-compat/README.md): generate provider compatibility matrices and turn them into reports under `docs/providers/`.
-- [real-relay-openrouter](real-relay-openrouter/README.md): move from dry-run to a real OpenRouter upstream config.
+- [real-relay-openrouter](real-relay-openrouter/README.md): move from dry-run to a real OpenRouter upstream config, then run `verify.sh` for an end-to-end Codex gateway smoke.
 
 ## Config Files
 

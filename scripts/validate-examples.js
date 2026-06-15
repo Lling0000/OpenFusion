@@ -17,17 +17,18 @@ const requiredFiles = [
   "examples/provider-compat/README.md",
   "examples/real-relay-openrouter/README.md",
   "examples/real-relay-openrouter/openfusion.config.example.json",
-  "examples/real-relay-openrouter/env.example"
+  "examples/real-relay-openrouter/env.example",
+  "examples/real-relay-openrouter/verify.sh"
 ];
 
 const requiredText = {
-  "examples/README.md": ["quickstart", "codex-local-adapter", "eval-receipt", "tool-passthrough", "provider-compat", "real-relay-openrouter"],
+  "examples/README.md": ["quickstart", "codex-local-adapter", "eval-receipt", "tool-passthrough", "provider-compat", "real-relay-openrouter", "verify.sh"],
   "examples/quickstart/README.md": ["openfusion serve --dry-run", "/v1/chat/completions", "/debug/route"],
   "examples/codex-local-adapter/README.md": ["~/.codex/config.toml", "OPENFUSION_API_KEY", "OPENFUSION_BASE_URL", "tool protocol"],
   "examples/eval-receipt/README.md": ["openfusion eval --dry-run", "openfusion receipt --dry-run", "hasPhaseTrace"],
   "examples/tool-passthrough/README.md": ["tool-passthrough", "role: \"tool\"", "fusion.toolRole"],
   "examples/provider-compat/README.md": ["openfusion compat", "docs/providers", "npm run check:providers"],
-  "examples/real-relay-openrouter/README.md": ["OPENROUTER_API_KEY", "doctor --real", "Real mode fans ordinary requests"]
+  "examples/real-relay-openrouter/README.md": ["OPENROUTER_API_KEY", "doctor --real", "verify.sh", "Real mode fans ordinary requests"]
 };
 
 const failures = [];

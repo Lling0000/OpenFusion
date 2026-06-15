@@ -19,6 +19,8 @@
     "docs",
     "examples",
     "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
     "LICENSE",
     "SECURITY.md"
   ],
@@ -29,9 +31,11 @@
     "doctor": "node src/cli.js doctor",
     "smoke": "node src/cli.js --dry-run \"Debug this flaky React test and propose a patch\" --json",
     "eval": "node src/cli.js eval --dry-run",
+    "compare": "node src/cli.js compare --dry-run",
     "check": "node scripts/check-release.js",
     "check:providers": "node scripts/validate-provider-reports.js",
     "check:examples": "node scripts/validate-examples.js",
+    "check:real-openrouter": "sh examples/real-relay-openrouter/verify.sh",
     "check:package": "node scripts/package-smoke.js",
     "prepublishOnly": "npm run check"
   },

@@ -35,6 +35,16 @@ openfusion compare --config openfusion.config.json --baseline-role fast
 
 If this fails, first check that each role model in `openfusion.config.json` is available to your OpenRouter account. You can temporarily switch a role to a model you know works, then rerun `doctor --real`.
 
+Or run the end-to-end verification script from a git checkout:
+
+```bash
+OPENFUSION_BIN="node src/cli.js" \
+OPENFUSION_CONFIG="examples/real-relay-openrouter/openfusion.config.example.json" \
+examples/real-relay-openrouter/verify.sh
+```
+
+The script runs `doctor --real`, `compare`, prints the Codex adapter snippet, starts a local OpenFusion server, probes `http://127.0.0.1:8787/v1`, and then shuts the server down.
+
 ## 3. Start The Local Gateway
 
 ```bash
@@ -105,3 +115,4 @@ Copy the output into a Markdown file using the template in [../../docs/providers
 - Tool-call requests bypass fusion and go to one upstream model.
 - Keep `OPENROUTER_API_KEY` out of config files and committed logs.
 - OpenFusion's local streaming is SSE-compatible but buffered after the full fusion result is ready; it is not token-by-token yet.
+- `verify.sh` makes real upstream calls and may spend OpenRouter credits.
