@@ -25,6 +25,11 @@ test("parses explicit chat and serve commands", () => {
   assert.equal(chat.json, true);
   assert.equal(chat.question, "Fix this test");
 
+  const route = parseArgs(["route", "--json", "Review", "this", "API"]);
+  assert.equal(route.command, "route");
+  assert.equal(route.json, true);
+  assert.equal(route.question, "Review this API");
+
   const serve = parseArgs(["serve", "--port", "9999"]);
   assert.equal(serve.server, true);
   assert.equal(serve.port, 9999);

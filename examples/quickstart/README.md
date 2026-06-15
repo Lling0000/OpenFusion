@@ -2,7 +2,28 @@
 
 This example proves the local fusion pipeline without sending prompts upstream.
 
-## 1. Run A Dry-Run Fusion Call
+## 1. Preview Routing Without Model Calls
+
+```bash
+openfusion route --json "Review this patch for security risks and missing tests"
+```
+
+Expected shape:
+
+```json
+{
+  "object": "openfusion.route_preview",
+  "route": {
+    "selectedRoles": ["coder", "fast", "verifier"]
+  },
+  "budget": {
+    "estimatedUpstreamCalls": 5,
+    "withinBudget": true
+  }
+}
+```
+
+## 2. Run A Dry-Run Fusion Call
 
 ```bash
 openfusion --dry-run --json "Review this patch for security risks and missing tests"
@@ -27,13 +48,13 @@ Expected shape:
 
 The exact role order can vary as routing improves, but a coding/review prompt should include more than one specialist.
 
-## 2. Start The Local Server
+## 3. Start The Local Server
 
 ```bash
 openfusion serve --dry-run --port 8787
 ```
 
-## 3. Call The OpenAI-Compatible Endpoint
+## 4. Call The OpenAI-Compatible Endpoint
 
 In another terminal:
 
@@ -45,7 +66,7 @@ curl http://127.0.0.1:8787/v1/chat/completions \
 
 The response is a normal chat completion plus an extra `openfusion` trace with the route, panel, judge, and synthesizer metadata.
 
-## 4. Inspect Routing Only
+## 5. Inspect Routing Over HTTP
 
 ```bash
 curl http://127.0.0.1:8787/debug/route \
@@ -53,7 +74,7 @@ curl http://127.0.0.1:8787/debug/route \
   -d @examples/quickstart/route-request.json
 ```
 
-## 5. Probe Compatibility
+## 6. Probe Compatibility
 
 ```bash
 openfusion doctor --probe-url http://127.0.0.1:8787/v1 --probe-model openfusion/fusion

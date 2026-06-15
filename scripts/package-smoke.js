@@ -38,6 +38,18 @@ try {
     throw new Error("Packaged openfusion dry-run did not return a multi-role route.");
   }
 
+  const route = run(binPath("openfusion"), ["route", "--json", "Review this Codex relay patch"], {
+    cwd: installDir,
+    capture: true
+  });
+  const routeJson = JSON.parse(route.stdout);
+  if (routeJson.schema !== "openfusion.route_preview.v1" || !routeJson.budget?.withinBudget) {
+    throw new Error("Packaged openfusion route command did not return a valid route preview.");
+  }
+  if (!Array.isArray(routeJson.panel) || routeJson.panel.length < 2) {
+    throw new Error("Packaged openfusion route command did not include a multi-role panel preview.");
+  }
+
   const receipt = run(binPath("openfusion"), ["receipt", "--dry-run", "Review this packaged CLI route"], {
     cwd: installDir,
     capture: true

@@ -9,6 +9,8 @@ import { initConfig } from "./init.js";
 import { runDoctor } from "./doctor.js";
 import { listModels } from "./models.js";
 import { renderDoctorMarkdown } from "./report.js";
+import { fusionBudget } from "./fusion.js";
+import { routeQuestion } from "./router.js";
 import { loadCompatTargets, renderCompatibilityMatrixMarkdown, runCompatibilityMatrix } from "./compat.js";
 import { buildAdapterGuide, listAdapters, renderAdapterGuide } from "./adapters.js";
 import { buildFusionReceipt, renderEvalMarkdown, runEvalSuite } from "./evals.js";
@@ -43,6 +45,19 @@ export async function main(args) {
       }
     }
     return 0;
+  }
+
+  if (args.command === "route") {
+    const config = await loadConfig(args.config);
+    const result = buildRoutePreview(args.question, config);
+
+    if (args.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printRoutePreview(result);
+    }
+
+    return result.budget.withinBudget ? 0 : 1;
   }
 
   if (args.command === "doctor") {
@@ -182,7 +197,7 @@ export function parseArgs(argv) {
     targets: []
   };
   const questionParts = [];
-  const commands = new Set(["init", "models", "doctor", "compat", "adapter", "eval", "receipt", "serve", "chat"]);
+  const commands = new Set(["init", "models", "route", "doctor", "compat", "adapter", "eval", "receipt", "serve", "chat"]);
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -222,6 +237,32 @@ function createUpstreamClient(config) {
   });
 }
 
+function buildRoutePreview(question, config) {
+  const route = routeQuestion(question, config);
+  const budget = fusionBudget(route, config);
+
+  return {
+    object: "openfusion.route_preview",
+    schema: "openfusion.route_preview.v1",
+    question,
+    route,
+    budget,
+    panel: route.selectedRoles.map((role) => ({
+      role,
+      model: config.roles[role].model,
+      description: config.roles[role].description
+    })),
+    judge: {
+      role: config.fusion.judgeRole,
+      model: config.roles[config.fusion.judgeRole].model
+    },
+    synthesizer: {
+      role: config.fusion.synthesizerRole,
+      model: config.roles[config.fusion.synthesizerRole].model
+    }
+  };
+}
+
 function isMain(moduleURL, argvPath) {
   if (!argvPath) return false;
 
@@ -242,12 +283,23 @@ function printHuman(result) {
   console.log(`Synthesizer: ${result.final.role}:${result.final.model}`);
 }
 
+function printRoutePreview(result) {
+  console.log("# OpenFusion Route Preview");
+  console.log(`\n${result.route.rationale}`);
+  console.log(`\nPanel: ${result.panel.map((item) => `${item.role}:${item.model}`).join(", ")}`);
+  console.log(`Judge: ${result.judge.role}:${result.judge.model}`);
+  console.log(`Synthesizer: ${result.synthesizer.role}:${result.synthesizer.model}`);
+  console.log(`Budget: ${result.budget.estimatedUpstreamCalls}/${result.budget.maxUpstreamCalls} upstream calls`);
+  console.log(`Within budget: ${result.budget.withinBudget ? "yes" : "no"}`);
+}
+
 function printHelp() {
   console.log(`OpenFusion - local multi-model fusion for OpenAI-compatible relays
 
 Usage:
   openfusion init [--output openfusion.config.json] [--force]
   openfusion models [--json] [--config openfusion.config.json]
+  openfusion route [--json] [--config openfusion.config.json] "your question"
   openfusion doctor [--real] [--probe-url http://127.0.0.1:8787/v1] [--json] [--format markdown]
   openfusion compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" [--json]
   openfusion compat --compat-config examples/compat.config.example.json
@@ -262,6 +314,7 @@ Usage:
 Examples:
   node src/cli.js init
   node src/cli.js doctor
+  node src/cli.js route --json "Review this API design for security and tests"
   node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1
   node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1 --format markdown
   node src/cli.js compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion"

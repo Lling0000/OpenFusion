@@ -4,7 +4,7 @@ These examples are copy-paste paths for the most important OpenFusion workflows.
 
 ## Start Here
 
-- [quickstart](quickstart/README.md): run the dry-run fusion pipeline, start a local OpenAI-compatible server, and inspect the `openfusion` trace.
+- [quickstart](quickstart/README.md): preview routing without model calls, run the dry-run fusion pipeline, start a local OpenAI-compatible server, and inspect the `openfusion` trace.
 - [codex-local-adapter](codex-local-adapter/README.md): copy a Codex `~/.codex/config.toml` provider snippet and verify the local gateway.
 - [eval-receipt](eval-receipt/README.md): generate routing/orchestration receipts for built-in cases or one prompt.
 - [tool-passthrough](tool-passthrough/README.md): see why Codex-style tool calls bypass multi-model fusion and stay on one upstream model.

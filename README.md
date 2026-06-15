@@ -110,6 +110,7 @@ Installed or `npx` usage:
 ```bash
 openfusion init
 openfusion models
+openfusion route "Review this API design for security and tests"
 openfusion doctor
 openfusion eval --dry-run
 openfusion chat --dry-run "Compare two architectures for a Codex API relay" --json
@@ -121,13 +122,14 @@ From a git checkout, replace `openfusion` with `node src/cli.js`:
 ```bash
 node src/cli.js init
 node src/cli.js models
+node src/cli.js route "Review this API design for security and tests"
 node src/cli.js doctor
 node src/cli.js eval --dry-run
 node src/cli.js chat --dry-run "Compare two architectures for a Codex API relay" --json
 node src/cli.js serve --dry-run --port 8787
 ```
 
-`doctor` checks configuration, role mappings, judge/synthesizer settings, and the dry-run fusion pipeline. It also includes a compact Fusion Receipt Summary with the selected panel roles, judge, synthesizer, trace id, phase count, and latency. Pass `--real` after setting your upstream key to test a real relay.
+`route` previews the selected panel, judge, synthesizer, and upstream call budget without calling any model. `doctor` checks configuration, role mappings, judge/synthesizer settings, and the dry-run fusion pipeline. It also includes a compact Fusion Receipt Summary with the selected panel roles, judge, synthesizer, trace id, phase count, and latency. Pass `--real` after setting your upstream key to test a real relay.
 
 ```bash
 export OPENROUTER_API_KEY="..."
