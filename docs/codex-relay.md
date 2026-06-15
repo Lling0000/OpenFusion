@@ -113,6 +113,8 @@ Dry-run doctor does not call upstream:
 openfusion doctor
 ```
 
+Doctor output includes a compact Fusion Receipt Summary proving the local pipeline reached the selected panel roles, judge, synthesis, and phase trace.
+
 Real doctor runs the fusion pipeline against the configured upstream:
 
 ```bash

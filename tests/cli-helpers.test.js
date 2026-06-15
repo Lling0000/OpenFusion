@@ -69,6 +69,17 @@ test("doctor validates dry-run fusion pipeline without upstream key", async () =
   assert.equal(result.ok, true);
   assert.equal(result.mode, "dry-run");
   assert.ok(result.checks.some((check) => check.name === "fusion.pipeline" && check.ok));
+  assert.equal(result.fusionSummary.object, "openfusion.fusion_summary");
+  assert.equal(result.fusionSummary.schema, "openfusion.fusion_summary.v1");
+  assert.equal(result.fusionSummary.promptSha256.length, 64);
+  assert.ok(result.fusionSummary.panel.length >= defaultConfig.fusion.minPanel);
+  assert.equal(result.fusionSummary.judge.role, defaultConfig.fusion.judgeRole);
+  assert.equal(result.fusionSummary.synthesizer.role, defaultConfig.fusion.synthesizerRole);
+  assert.equal(result.fusionSummary.trace.phaseCount, result.fusionSummary.panel.length + 2);
+  assert.equal(result.fusionSummary.evidence.hasMultiplePanelRoles, true);
+  assert.equal(result.fusionSummary.evidence.hasJudgeNotes, true);
+  assert.equal(result.fusionSummary.evidence.hasSynthesis, true);
+  assert.equal(result.fusionSummary.evidence.hasPhaseTrace, true);
 });
 
 test("doctor can probe an OpenAI-compatible endpoint", async () => {
@@ -115,6 +126,39 @@ test("renders doctor results as a Markdown compatibility report", async () => {
     ok: false,
     mode: "dry-run",
     probeURL: "http://127.0.0.1:8787/v1",
+    fusionSummary: {
+      object: "openfusion.fusion_summary",
+      schema: "openfusion.fusion_summary.v1",
+      promptSha256: "a".repeat(64),
+      route: {
+        selectedRoles: ["coder", "verifier"],
+        rationale: "Coding task with review risk."
+      },
+      panel: [
+        { role: "coder", model: "anthropic/claude-sonnet-4" },
+        { role: "verifier", model: "google/gemini-2.5-pro" }
+      ],
+      judge: { role: "verifier", model: "google/gemini-2.5-pro" },
+      synthesizer: { role: "writer", model: "openai/gpt-4.1" },
+      trace: {
+        id: "of_test",
+        phaseCount: 4,
+        latencyMs: 123,
+        phases: [
+          { phase: "panel", role: "coder", model: "anthropic/claude-sonnet-4", latencyMs: 30, upstreamId: null, hasUsage: false },
+          { phase: "panel", role: "verifier", model: "google/gemini-2.5-pro", latencyMs: 35, upstreamId: null, hasUsage: false },
+          { phase: "judge", role: "verifier", model: "google/gemini-2.5-pro", latencyMs: 28, upstreamId: null, hasUsage: false },
+          { phase: "synthesis", role: "writer", model: "openai/gpt-4.1", latencyMs: 30, upstreamId: "chatcmpl_1", hasUsage: true }
+        ]
+      },
+      evidence: {
+        panelCount: 2,
+        hasMultiplePanelRoles: true,
+        hasJudgeNotes: true,
+        hasSynthesis: true,
+        hasPhaseTrace: true
+      }
+    },
     checks: [
       { name: "probe.chat", ok: true, message: "POST /chat/completions returned 200." },
       { name: "probe.tool.roundtrip", ok: false, message: "Tool | follow-up failed." }
@@ -126,7 +170,26 @@ test("renders doctor results as a Markdown compatibility report", async () => {
   assert.match(markdown, /# OpenFusion Compatibility Report/);
   assert.match(markdown, /\| `probe\.chat` \| PASS \|/);
   assert.match(markdown, /\| `probe\.tool\.roundtrip` \| FAIL \| Tool \\| follow-up failed\. \|/);
+  assert.match(markdown, /## Fusion Receipt Summary/);
+  assert.match(markdown, /Trace: `of_test` \(4 phases, 123 ms\)/);
+  assert.match(markdown, /Judge: `verifier:google\/gemini-2\.5-pro`/);
+  assert.match(markdown, /Synthesizer: `writer:openai\/gpt-4\.1`/);
+  assert.match(markdown, /\| synthesis \| `writer` \| `openai\/gpt-4\.1` \| 30 ms \| `chatcmpl_1` \| yes \|/);
+  assert.match(markdown, /Evidence: multiple panel roles, judge notes, synthesis, phase trace\./);
   assert.match(markdown, /Overall: \*\*FAIL\*\*/);
+});
+
+test("renders doctor Markdown without a fusion summary for older callers", () => {
+  const markdown = renderDoctorMarkdown({
+    ok: true,
+    mode: "dry-run",
+    probeURL: null,
+    checks: [{ name: "config", ok: true, message: "Configuration loaded." }]
+  });
+
+  assert.match(markdown, /# OpenFusion Doctor Report/);
+  assert.doesNotMatch(markdown, /Fusion Receipt Summary/);
+  assert.match(markdown, /Overall: \*\*PASS\*\*/);
 });
 
 test("runs and renders a provider compatibility matrix", async () => {

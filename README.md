@@ -127,7 +127,7 @@ node src/cli.js chat --dry-run "Compare two architectures for a Codex API relay"
 node src/cli.js serve --dry-run --port 8787
 ```
 
-`doctor` checks configuration, role mappings, judge/synthesizer settings, and the dry-run fusion pipeline. Pass `--real` after setting your upstream key to test a real relay.
+`doctor` checks configuration, role mappings, judge/synthesizer settings, and the dry-run fusion pipeline. It also includes a compact Fusion Receipt Summary with the selected panel roles, judge, synthesizer, trace id, phase count, and latency. Pass `--real` after setting your upstream key to test a real relay.
 
 ```bash
 export OPENROUTER_API_KEY="..."
@@ -145,6 +145,8 @@ Generate a Markdown compatibility report:
 ```bash
 openfusion doctor --probe-url http://127.0.0.1:8787/v1 --format markdown
 ```
+
+The Markdown report is designed to be pasted into issues or provider reports. Use `eval` or `receipt` when you need fuller routing/orchestration evidence with content hashes and excerpts.
 
 Compare multiple providers or relays:
 
