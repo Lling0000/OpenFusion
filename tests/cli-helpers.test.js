@@ -15,7 +15,7 @@ import { probeEndpoint } from "../src/probe.js";
 import { renderDoctorMarkdown } from "../src/report.js";
 import { loadCompatTargets, renderCompatibilityMatrixMarkdown, runCompatibilityMatrix } from "../src/compat.js";
 import { buildAdapterGuide, listAdapters, renderAdapterGuide } from "../src/adapters.js";
-import { buildFusionReceipt, renderEvalMarkdown, runEvalSuite } from "../src/evals.js";
+import { buildFusionReceipt, renderComparisonMarkdown, renderEvalMarkdown, runComparisonSuite, runEvalSuite } from "../src/evals.js";
 import { MockChatClient } from "../src/mockClient.js";
 import { runFusion } from "../src/fusion.js";
 
@@ -55,6 +55,12 @@ test("parses explicit chat and serve commands", () => {
   assert.equal(evalArgs.command, "eval");
   assert.equal(evalArgs.dryRun, true);
   assert.equal(evalArgs.json, true);
+
+  const compare = parseArgs(["compare", "--dry-run", "--baseline-role", "coder", "--json"]);
+  assert.equal(compare.command, "compare");
+  assert.equal(compare.dryRun, true);
+  assert.equal(compare.baselineRole, "coder");
+  assert.equal(compare.json, true);
 
   const receipt = parseArgs(["receipt", "--dry-run", "Review", "this", "patch"]);
   assert.equal(receipt.command, "receipt");
@@ -294,6 +300,41 @@ test("runs and renders eval receipts", async () => {
   assert.match(markdown, /Distinct routing: \*\*yes\*\*/);
   assert.match(markdown, /\| `architecture-tradeoff` \| `coder` \+ `reasoner` \+ `fast` \+ `verifier` \|/);
   assert.match(markdown, /does not prove answer quality/);
+});
+
+test("runs and renders single-vs-fusion comparison receipts", async () => {
+  const receipt = await runComparisonSuite({
+    config: defaultConfig,
+    client: new MockChatClient(),
+    baselineRole: "fast"
+  });
+  const markdown = renderComparisonMarkdown(receipt);
+
+  assert.equal(receipt.object, "openfusion.comparison_receipt");
+  assert.equal(receipt.schema, "openfusion.comparison_receipt.v1");
+  assert.equal(receipt.baselineRole, "fast");
+  assert.equal(receipt.baselineModel, defaultConfig.roles.fast.model);
+  assert.equal(receipt.summary.failed, 0);
+  assert.equal(receipt.summary.routingDiversity.totalCases, receipt.summary.total);
+  assert.ok(receipt.results.every((item) => item.baseline.contentSha256.length === 64));
+  assert.ok(receipt.results.every((item) => item.verdict.hasBaselineAnswer));
+  assert.ok(receipt.results.every((item) => item.verdict.hasMultipleFusionRoles));
+  assert.ok(receipt.results.every((item) => item.verdict.hasDistinctFusionPath));
+  assert.match(markdown, /# OpenFusion Single-vs-Fusion Comparison Receipt/);
+  assert.match(markdown, /Baseline: `fast:openai\/gpt-4\.1-mini`/);
+  assert.match(markdown, /\| `coding-review` \| PASS \| `fast:openai\/gpt-4\.1-mini` \|/);
+  assert.match(markdown, /orchestration evidence, not an automatic quality win claim/);
+});
+
+test("comparison receipts reject unknown baseline roles", async () => {
+  await assert.rejects(
+    () => runComparisonSuite({
+      config: defaultConfig,
+      client: new MockChatClient(),
+      baselineRole: "unknown"
+    }),
+    /Unknown baseline role/
+  );
 });
 
 test("builds a single fusion receipt", async () => {

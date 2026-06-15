@@ -72,6 +72,100 @@ export async function runEvalSuite({ config, client, cases = defaultEvalCases } 
   };
 }
 
+export async function runComparisonSuite({ config, client, cases = defaultEvalCases, baselineRole = "fast" } = {}) {
+  if (!config.roles[baselineRole]) {
+    throw new Error(`Unknown baseline role: ${baselineRole}`);
+  }
+
+  const startedAt = new Date().toISOString();
+  const baselineConfig = config.roles[baselineRole];
+  const results = [];
+
+  for (const item of cases) {
+    const baselineStarted = Date.now();
+    const baseline = await client.complete({
+      phase: "baseline",
+      role: baselineRole,
+      model: baselineConfig.model,
+      messages: [{ role: "user", content: item.prompt }],
+      metadata: { phase: "baseline", role: baselineRole }
+    });
+    const baselineLatencyMs = Date.now() - baselineStarted;
+    const fusion = await runFusion({
+      question: item.prompt,
+      config,
+      client
+    });
+
+    results.push({
+      id: item.id,
+      prompt: item.prompt,
+      promptSha256: sha256(item.prompt),
+      expectedRoles: item.expectedRoles,
+      baseline: {
+        role: baselineRole,
+        model: baseline.model ?? baselineConfig.model,
+        latencyMs: baselineLatencyMs,
+        contentSha256: sha256(baseline.content),
+        contentExcerpt: excerpt(baseline.content),
+        upstreamId: baseline.raw?.id ?? null,
+        usage: baseline.raw?.usage ?? null
+      },
+      fusion: {
+        selectedRoles: fusion.route.selectedRoles,
+        panel: fusion.panel.map(({ role, model }) => ({ role, model })),
+        judge: {
+          role: fusion.judge.role,
+          model: fusion.judge.model,
+          contentSha256: sha256(fusion.judge.content),
+          contentExcerpt: excerpt(fusion.judge.content)
+        },
+        synthesizer: {
+          role: fusion.final.role,
+          model: fusion.final.model,
+          contentSha256: sha256(fusion.final.content),
+          contentExcerpt: excerpt(fusion.final.content)
+        },
+        trace: traceSummary(fusion.trace)
+      },
+      verdict: {
+        hasBaselineAnswer: Boolean(baseline.content),
+        hasMultipleFusionRoles: fusion.panel.length >= 2,
+        hasJudgeNotes: Boolean(fusion.judge.content),
+        hasFusionSynthesis: Boolean(fusion.final.content),
+        hasDistinctFusionPath: fusion.panel.length > 1 || fusion.panel[0]?.model !== (baseline.model ?? baselineConfig.model)
+      }
+    });
+  }
+
+  const passed = results.filter((item) => (
+    item.verdict.hasBaselineAnswer &&
+    item.verdict.hasMultipleFusionRoles &&
+    item.verdict.hasJudgeNotes &&
+    item.verdict.hasFusionSynthesis &&
+    item.verdict.hasDistinctFusionPath
+  )).length;
+
+  return {
+    object: "openfusion.comparison_receipt",
+    schema: "openfusion.comparison_receipt.v1",
+    startedAt,
+    mode: client.constructor?.name === "MockChatClient" ? "dry-run" : "real",
+    baselineRole,
+    baselineModel: baselineConfig.model,
+    summary: {
+      total: results.length,
+      passed,
+      failed: results.length - passed,
+      routingDiversity: routingDiversity(results.map((item) => ({
+        id: item.id,
+        selectedRoles: item.fusion.selectedRoles
+      })))
+    },
+    results
+  };
+}
+
 export function renderEvalMarkdown(receipt) {
   const rows = [
     "| Case | Status | Expected Roles | Selected Roles | Trace | Judge | Synthesizer |",
@@ -104,6 +198,36 @@ export function renderEvalMarkdown(receipt) {
     ...(failures.length ? ["", "## Missing Expected Roles", "", failures.join("\n")] : []),
     "",
     "This receipt validates routing and orchestration behavior. It does not prove answer quality without real provider calls and task-specific grading."
+  ].join("\n");
+}
+
+export function renderComparisonMarkdown(receipt) {
+  const rows = [
+    "| Case | Status | Baseline | Fusion Panel | Judge | Synthesizer |",
+    "| --- | --- | --- | --- | --- | --- |",
+    ...receipt.results.map((item) => [
+      `| \`${escapePipes(item.id)}\``,
+      comparisonOk(item) ? "PASS" : "FAIL",
+      `\`${escapePipes(item.baseline.role)}:${escapePipes(item.baseline.model)}\``,
+      item.fusion.selectedRoles.map((role) => `\`${escapePipes(role)}\``).join(" + "),
+      `\`${escapePipes(item.fusion.judge.role)}:${escapePipes(item.fusion.judge.model)}\``,
+      `\`${escapePipes(item.fusion.synthesizer.role)}:${escapePipes(item.fusion.synthesizer.model)}\` |`
+    ].join(" | "))
+  ];
+
+  return [
+    "# OpenFusion Single-vs-Fusion Comparison Receipt",
+    "",
+    `Mode: \`${receipt.mode}\``,
+    `Started: \`${receipt.startedAt}\``,
+    `Baseline: \`${receipt.baselineRole}:${receipt.baselineModel}\``,
+    `Overall: **${receipt.summary.failed === 0 ? "PASS" : "FAIL"}** (${receipt.summary.passed}/${receipt.summary.total})`,
+    "",
+    rows.join("\n"),
+    "",
+    renderRoutingDiversityMarkdown(receipt.summary.routingDiversity),
+    "",
+    "This receipt proves the same prompts were exercised through one baseline model and the OpenFusion multi-stage route. It is orchestration evidence, not an automatic quality win claim; use real mode plus task-specific grading for quality comparisons."
   ].join("\n");
 }
 
@@ -142,6 +266,14 @@ export function buildFusionReceipt({ fusion, mode = "dry-run", id = "single-prom
       hasPhaseTrace: Boolean(fusion.trace?.phases?.length)
     }
   };
+}
+
+function comparisonOk(item) {
+  return item.verdict.hasBaselineAnswer &&
+    item.verdict.hasMultipleFusionRoles &&
+    item.verdict.hasJudgeNotes &&
+    item.verdict.hasFusionSynthesis &&
+    item.verdict.hasDistinctFusionPath;
 }
 
 function fusionEvidence(fusion) {

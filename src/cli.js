@@ -13,7 +13,7 @@ import { fusionBudget } from "./fusion.js";
 import { routeQuestion } from "./router.js";
 import { loadCompatTargets, renderCompatibilityMatrixMarkdown, runCompatibilityMatrix } from "./compat.js";
 import { buildAdapterGuide, listAdapters, renderAdapterGuide } from "./adapters.js";
-import { buildFusionReceipt, renderEvalMarkdown, runEvalSuite } from "./evals.js";
+import { buildFusionReceipt, renderComparisonMarkdown, renderEvalMarkdown, runComparisonSuite, runEvalSuite } from "./evals.js";
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -140,6 +140,24 @@ export async function main(args) {
     return receipt.summary.failed === 0 ? 0 : 1;
   }
 
+  if (args.command === "compare") {
+    const config = await loadConfig(args.config);
+    const client = args.dryRun ? new MockChatClient() : createUpstreamClient(config);
+    const receipt = await runComparisonSuite({
+      config,
+      client,
+      baselineRole: args.baselineRole ?? "fast"
+    });
+
+    if (args.json) {
+      console.log(JSON.stringify(receipt, null, 2));
+    } else {
+      console.log(renderComparisonMarkdown(receipt));
+    }
+
+    return receipt.summary.failed === 0 ? 0 : 1;
+  }
+
   if (args.command === "receipt") {
     const config = await loadConfig(args.config);
     const client = args.dryRun ? new MockChatClient() : createUpstreamClient(config);
@@ -197,7 +215,7 @@ export function parseArgs(argv) {
     targets: []
   };
   const questionParts = [];
-  const commands = new Set(["init", "models", "route", "doctor", "compat", "adapter", "eval", "receipt", "serve", "chat"]);
+  const commands = new Set(["init", "models", "route", "doctor", "compat", "adapter", "eval", "compare", "receipt", "serve", "chat"]);
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -219,6 +237,7 @@ export function parseArgs(argv) {
     else if (arg === "--target") parsed.targets.push(argv[++index]);
     else if (arg === "--compat-config") parsed.compatConfig = argv[++index];
     else if (arg === "--command-name") parsed.commandName = argv[++index];
+    else if (arg === "--baseline-role") parsed.baselineRole = argv[++index];
     else if (parsed.command === "adapter" && !parsed.adapterName) parsed.adapterName = arg;
     else questionParts.push(arg);
   }
@@ -312,6 +331,7 @@ Usage:
   openfusion compat --compat-config examples/compat.config.example.json
   openfusion adapter [codex] [--json] [--port 8787] [--config openfusion.config.json] [--command-name openfusion]
   openfusion eval --dry-run [--json] [--format markdown]
+  openfusion compare --dry-run [--json] [--baseline-role fast]
   openfusion receipt --dry-run "your question"
   openfusion serve [--dry-run] [--port 8787]
   openfusion chat [--dry-run] [--json] "your question"
@@ -327,6 +347,7 @@ Examples:
   node src/cli.js compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion"
   node src/cli.js adapter codex
   node src/cli.js eval --dry-run
+  node src/cli.js compare --dry-run --baseline-role fast
   node src/cli.js receipt --dry-run "Debug this failing API test"
   node src/cli.js models
   node src/cli.js --dry-run "Review this API design for security and tests"

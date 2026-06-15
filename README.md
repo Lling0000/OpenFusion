@@ -25,6 +25,7 @@ Run directly from GitHub with `npx`:
 ```bash
 npx github:Lling0000/OpenFusion doctor
 npx github:Lling0000/OpenFusion --dry-run "Review this patch for security risks and missing tests" --json
+npx github:Lling0000/OpenFusion compare --dry-run
 npx github:Lling0000/OpenFusion adapter codex
 ```
 
@@ -37,6 +38,24 @@ npx openfusion@latest adapter codex
 
 Dry-run mode does not send prompts upstream. It uses a mock client so you can inspect routing and orchestration locally.
 
+What you should see from `compare --dry-run`:
+
+```text
+# OpenFusion Single-vs-Fusion Comparison Receipt
+
+Mode: `dry-run`
+Baseline: `fast:openai/gpt-4.1-mini`
+Overall: **PASS** (3/3)
+
+| Case | Status | Baseline | Fusion Panel | Judge | Synthesizer |
+| --- | --- | --- | --- | --- | --- |
+| `coding-review` | PASS | `fast:openai/gpt-4.1-mini` | `verifier` + `coder` + `fast` | `verifier:google/gemini-2.5-pro` | `writer:openai/gpt-4.1` |
+| `architecture-tradeoff` | PASS | `fast:openai/gpt-4.1-mini` | `coder` + `reasoner` + `fast` + `verifier` | `verifier:google/gemini-2.5-pro` | `writer:openai/gpt-4.1` |
+| `docs-polish` | PASS | `fast:openai/gpt-4.1-mini` | `writer` + `fast` + `verifier` | `verifier:google/gemini-2.5-pro` | `writer:openai/gpt-4.1` |
+```
+
+That receipt proves the same prompts were exercised through one baseline role and the multi-stage fusion route. In dry-run mode it proves orchestration, not answer quality; run the same command without `--dry-run` after configuring a real relay to collect real provider evidence.
+
 From a git checkout:
 
 ```bash
@@ -44,6 +63,7 @@ git clone https://github.com/Lling0000/OpenFusion.git
 cd OpenFusion
 node src/cli.js doctor
 node src/cli.js --dry-run "Review this patch for security risks and missing tests" --json
+node src/cli.js compare --dry-run
 ```
 
 Start a local OpenAI-compatible server:
@@ -95,7 +115,7 @@ This is especially useful when your Codex or editor setup already talks to an AP
 - OpenAI-compatible local endpoint: `POST /v1/chat/completions`.
 - Model listing endpoint: `GET /v1/models`.
 - Debug route endpoint: `POST /debug/route`.
-- CLI commands: `init`, `models`, `doctor`, `compat`, `adapter`, `serve`, and `chat`.
+- CLI commands: `init`, `models`, `route`, `doctor`, `compat`, `adapter`, `eval`, `compare`, `receipt`, `serve`, and `chat`.
 - Codex adapter guide: `adapter codex` prints local connection settings and verification commands.
 - Transparent `route -> panel -> judge -> synthesize` pipeline.
 - Works with OpenRouter or any OpenAI-compatible API relay.
@@ -114,6 +134,7 @@ openfusion models
 openfusion route "Review this API design for security and tests"
 openfusion doctor
 openfusion eval --dry-run
+openfusion compare --dry-run
 openfusion chat --dry-run "Compare two architectures for a Codex API relay" --json
 openfusion serve --dry-run --port 8787
 ```
@@ -126,6 +147,7 @@ node src/cli.js models
 node src/cli.js route "Review this API design for security and tests"
 node src/cli.js doctor
 node src/cli.js eval --dry-run
+node src/cli.js compare --dry-run
 node src/cli.js chat --dry-run "Compare two architectures for a Codex API relay" --json
 node src/cli.js serve --dry-run --port 8787
 ```
@@ -172,6 +194,16 @@ openfusion eval --dry-run
 openfusion eval --dry-run --json
 openfusion receipt --dry-run "Review this Codex relay patch"
 ```
+
+Generate a single-model baseline vs fusion receipt for the built-in eval prompts:
+
+```bash
+openfusion compare --dry-run
+openfusion compare --dry-run --json
+openfusion compare --dry-run --baseline-role coder
+```
+
+Without `--dry-run`, `compare` calls your configured upstream relay once through the baseline role and once through the fusion pipeline for each case. Treat the result as reproducible orchestration evidence; use task-specific grading before claiming one answer is better.
 
 ## Use With Codex Or An API Relay
 
@@ -342,6 +374,7 @@ If you adopt it, keep tests, code review, and domain-specific validation in the 
 - Better prompt classification with examples and custom rules.
 - Budget-aware routing by cost, latency, and context window.
 - Real-provider eval receipts comparing single-model vs fusion answers with task-specific grading.
+- Single-model vs fusion comparison receipts with `openfusion compare`.
 - Adapter presets for Codex, OpenCode, Continue, Cline, Aider, and LiteLLM.
 - Deeper compatibility doctor checks for provider quirks: tool calls, usage chunks, and headers.
 - Fusion-aware tool orchestration after the single-model passthrough path is stable.

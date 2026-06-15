@@ -139,15 +139,27 @@ Dry-run doctor does not call upstream:
 
 ```bash
 openfusion doctor
+openfusion compare --dry-run
 ```
 
 Doctor output includes a compact Fusion Receipt Summary proving the local pipeline reached the selected panel roles, judge, synthesis, and phase trace.
+`compare --dry-run` adds a baseline-vs-fusion receipt for the built-in prompts, proving the same cases can run through one role model and through the multi-stage route without sending prompts upstream.
 
 Real doctor runs the fusion pipeline against the configured upstream:
 
 ```bash
 YOUR_RELAY_API_KEY="..." openfusion doctor --real --config openfusion.config.json
 ```
+
+Real comparison receipts call your relay through both paths:
+
+```bash
+YOUR_RELAY_API_KEY="..." openfusion compare \
+  --config openfusion.config.json \
+  --baseline-role fast
+```
+
+Use this as reproducible evidence that your relay can serve the selected role models. It is not an automatic quality benchmark; pair it with task-specific grading before claiming fusion is better.
 
 Endpoint probe checks OpenAI-compatible HTTP behavior:
 

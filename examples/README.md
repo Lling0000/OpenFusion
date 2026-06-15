@@ -2,6 +2,14 @@
 
 These examples are copy-paste paths for the most important OpenFusion workflows.
 
+If you only try one command first, run:
+
+```bash
+openfusion compare --dry-run
+```
+
+Expected result: a `Single-vs-Fusion Comparison Receipt` where the same built-in prompts run through one baseline role and through different fusion panels. This proves local routing/orchestration before you spend provider credits.
+
 ## Start Here
 
 - [quickstart](quickstart/README.md): preview routing without model calls, run the dry-run fusion pipeline, start a local OpenAI-compatible server, and inspect the `openfusion` trace.
