@@ -3,6 +3,7 @@
 > A local, inspectable multi-model fusion router for coding agents.
 
 [![CI](https://github.com/Lling0000/OpenFusion/actions/workflows/ci.yml/badge.svg)](https://github.com/Lling0000/OpenFusion/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Lling0000/OpenFusion/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Lling0000/OpenFusion)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 OpenFusion exposes one OpenAI-compatible endpoint and fans each request out to a small role-based panel, such as `coder`, `reasoner`, `verifier`, and `writer`. It then judges disagreements and synthesizes one final answer, while returning a trace you can inspect.

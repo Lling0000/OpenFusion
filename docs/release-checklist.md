@@ -101,5 +101,6 @@ curl http://127.0.0.1:8787/v1/chat/completions \
 ## GitHub
 
 - CI is green on `main`.
+- OpenSSF Scorecard workflow is enabled and publishing results.
 - Issues and PR templates are present.
 - Release notes mention compatibility changes and migration notes.
