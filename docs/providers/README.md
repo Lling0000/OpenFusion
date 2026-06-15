@@ -4,6 +4,11 @@ This directory is for community-submitted OpenFusion compatibility reports.
 
 The goal is to make OpenAI-compatible relay behavior visible and reproducible for coding-agent users. A provider may accept `/chat/completions` but still differ on streaming, tool calls, usage chunks, headers, or model aliases. OpenFusion reports those differences as a simple matrix.
 
+## Reports
+
+- [Local OpenFusion Dry Run](local-openfusion.md): verifies the local dry-run OpenFusion facade.
+- [CodexAPI Space](codexapi-space.md): real OpenAI-compatible relay probe using `gpt-5.4-mini`.
+
 ## Generate A Report
 
 Start OpenFusion locally or point at your relay, then run:
