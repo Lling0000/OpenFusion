@@ -220,6 +220,7 @@ function traceSummary(trace = {}) {
     startedAt: trace.startedAt,
     completedAt: trace.completedAt,
     latencyMs: trace.latencyMs,
+    budget: trace.budget,
     phaseCount: trace.phases?.length ?? 0,
     phases: (trace.phases ?? []).map((phase) => ({
       phase: phase.phase,

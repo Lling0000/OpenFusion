@@ -99,6 +99,7 @@ function summarizeFusion(fusion) {
     trace: {
       id: fusion.trace?.id,
       latencyMs: fusion.trace?.latencyMs,
+      budget: fusion.trace?.budget,
       phaseCount: phases.length,
       phases: phases.map((phase) => ({
         phase: phase.phase,

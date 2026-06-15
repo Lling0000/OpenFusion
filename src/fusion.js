@@ -4,9 +4,12 @@ import { panelPrompt, judgePrompt, synthesisPrompt } from "./prompts.js";
 export async function runFusion({ question, messages, config, client }) {
   const normalizedQuestion = question ?? transcriptFromMessages(messages);
   const route = routeQuestion(normalizedQuestion, config);
+  const budget = fusionBudget(route, config);
+  enforceFusionBudget(budget);
   const trace = {
     id: createTraceId(),
     startedAt: new Date().toISOString(),
+    budget,
     phases: []
   };
 
@@ -74,6 +77,17 @@ export async function runFusion({ question, messages, config, client }) {
   };
 }
 
+export function fusionBudget(route, config) {
+  const estimatedUpstreamCalls = route.selectedRoles.length + 2;
+  const maxUpstreamCalls = config.fusion.maxUpstreamCalls ?? Infinity;
+
+  return {
+    estimatedUpstreamCalls,
+    maxUpstreamCalls,
+    withinBudget: estimatedUpstreamCalls <= maxUpstreamCalls
+  };
+}
+
 export function transcriptFromMessages(messages = []) {
   if (!Array.isArray(messages) || messages.length === 0) {
     throw new Error("OpenFusion requires a non-empty messages array.");
@@ -85,6 +99,18 @@ export function transcriptFromMessages(messages = []) {
   });
 
   return parts.join("\n\n");
+}
+
+function enforceFusionBudget(budget) {
+  if (budget.withinBudget) return;
+
+  const error = new Error(`Fusion route needs ${budget.estimatedUpstreamCalls} upstream calls, which exceeds fusion.maxUpstreamCalls=${budget.maxUpstreamCalls}.`);
+  error.name = "OpenFusionBudgetError";
+  error.statusCode = 400;
+  error.type = "invalid_request_error";
+  error.code = "fusion_budget_exceeded";
+  error.param = "fusion.maxUpstreamCalls";
+  throw error;
 }
 
 function contentToText(content) {

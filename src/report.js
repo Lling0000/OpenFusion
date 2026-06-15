@@ -44,6 +44,7 @@ function renderFusionSummary(summary) {
     `Route: ${summary.route.selectedRoles.map((role) => `\`${escapePipes(role)}\``).join(", ")}`,
     `Judge: \`${escapePipes(summary.judge.role)}:${escapePipes(summary.judge.model)}\``,
     `Synthesizer: \`${escapePipes(summary.synthesizer.role)}:${escapePipes(summary.synthesizer.model)}\``,
+    `Budget: ${formatBudget(summary.trace.budget)}`,
     `Trace: \`${escapePipes(summary.trace.id)}\` (${summary.trace.phaseCount} phases, ${formatLatency(summary.trace.latencyMs)})`,
     "",
     phaseRows.join("\n"),
@@ -63,6 +64,11 @@ function renderEvidence(evidence) {
 
 function formatLatency(value) {
   return Number.isFinite(value) ? `${value} ms` : "-";
+}
+
+function formatBudget(budget) {
+  if (!budget) return "-";
+  return `${budget.estimatedUpstreamCalls}/${budget.maxUpstreamCalls} upstream calls`;
 }
 
 function escapePipes(value) {

@@ -185,9 +185,14 @@ Edit `openfusion.config.json` if your relay uses a different base URL or environ
   "upstream": {
     "baseURL": "https://your-relay.example.com/v1",
     "apiKeyEnv": "YOUR_RELAY_API_KEY"
+  },
+  "fusion": {
+    "maxUpstreamCalls": 6
   }
 }
 ```
+
+`maxUpstreamCalls` is a pre-flight safety guard. OpenFusion estimates `selected panel roles + judge + synthesis` and rejects the request before any upstream call if the route would exceed the limit.
 
 Start OpenFusion:
 
@@ -262,10 +267,11 @@ Strict OpenAI SDK clients can ignore the extra `openfusion` field. Debugging too
 OpenFusion is deliberately small:
 
 1. `src/router.js` scores the prompt for coding, reasoning, verification, and writing signals.
-2. `src/fusion.js` runs the selected specialist panel concurrently.
-3. `src/prompts.js` creates independent panel prompts, judge prompts, and final synthesis prompts.
-4. `src/openaiClient.js` calls an OpenAI-compatible `/chat/completions` upstream.
-5. `src/server.js` exposes a local `/v1/chat/completions` endpoint.
+2. `src/fusion.js` estimates upstream calls and enforces `fusion.maxUpstreamCalls` before any model call.
+3. `src/fusion.js` runs the selected specialist panel concurrently.
+4. `src/prompts.js` creates independent panel prompts, judge prompts, and final synthesis prompts.
+5. `src/openaiClient.js` calls an OpenAI-compatible `/chat/completions` upstream.
+6. `src/server.js` exposes a local `/v1/chat/completions` endpoint.
 
 ## Compatibility
 
@@ -275,7 +281,7 @@ OpenFusion implements a small OpenAI-compatible surface for local routing.
 | --- | --- | --- |
 | `POST /v1/chat/completions` | Supported | Non-streaming chat completions. |
 | `GET /v1/models` | Supported | Lists virtual OpenFusion models and role models. |
-| `POST /debug/route` | Supported | Shows selected roles and routing rationale without running the full pipeline. |
+| `POST /debug/route` | Supported | Shows selected roles, routing rationale, and estimated upstream call budget without running the full pipeline. |
 | Streaming responses | Basic support | Returns SSE-compatible chunks after the fusion result is ready. Token-by-token streaming is planned. |
 | Tool calls / function calling | Basic passthrough | Requests with `tools`, `tool_choice`, `parallel_tool_calls`, `role: "tool"`, or assistant `tool_calls` bypass fusion and go to one upstream model so the tool-call protocol is preserved. |
 | Embeddings, images, audio | Not supported | OpenFusion currently focuses on coding-agent chat workflows. |
@@ -295,7 +301,7 @@ OpenFusion does not claim to reproduce OpenRouter's private routing logic. It is
 
 OpenFusion is an early, working prototype for local multi-model orchestration.
 
-It is useful today for experimenting with role-based routing, dry-run traces, eval receipts, and OpenAI-compatible relay integration. It is not yet a production gateway: token-by-token streaming, provider-specific quirks, budget controls, answer-quality grading, and fusion-aware tool orchestration are still on the roadmap. Basic tool-call passthrough already exists so coding-agent tool turns stay on one upstream model.
+It is useful today for experimenting with role-based routing, dry-run traces, eval receipts, basic upstream call budgets, and OpenAI-compatible relay integration. It is not yet a production gateway: token-by-token streaming, provider-specific quirks, cost-aware routing, answer-quality grading, and fusion-aware tool orchestration are still on the roadmap. Basic tool-call passthrough already exists so coding-agent tool turns stay on one upstream model.
 
 If you adopt it, keep tests, code review, and domain-specific validation in the loop. Fusion improves coverage of perspectives; it does not guarantee correctness.
 

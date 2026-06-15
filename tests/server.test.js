@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { startServer } from "../src/server.js";
 import { defaultConfig } from "../src/defaultConfig.js";
 
@@ -22,6 +25,8 @@ test("serves OpenAI-compatible models and chat completions", async () => {
     });
     assert.equal(route.object, "openfusion.route");
     assert.ok(route.route.selectedRoles.includes("verifier"));
+    assert.equal(route.budget.withinBudget, true);
+    assert.equal(route.budget.maxUpstreamCalls, defaultConfig.fusion.maxUpstreamCalls);
 
     const completion = await fetchJson(`http://127.0.0.1:${port}/v1/chat/completions`, {
       method: "POST",
@@ -37,10 +42,40 @@ test("serves OpenAI-compatible models and chat completions", async () => {
     assert.match(completion.choices[0].message.content, /OpenFusion/);
     assert.ok(completion.openfusion.panel.length >= 2);
     assert.match(completion.openfusion.trace.id, /^of_/);
+    assert.equal(completion.openfusion.trace.budget.withinBudget, true);
     assert.equal(completion.openfusion.trace.phase_count, completion.openfusion.panel.length + 2);
     assert.equal(typeof completion.usage.total_tokens, "number");
   } finally {
     await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("returns a budget error before fusion exceeds configured upstream calls", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "openfusion-budget-"));
+  const configPath = join(dir, "openfusion.config.json");
+  const config = structuredClone(defaultConfig);
+  config.fusion.maxUpstreamCalls = 3;
+  await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const server = await startServer({ configPath, dryRun: true, port: 0 });
+  const { port } = server.address();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "openfusion/fusion",
+        messages: [{ role: "user", content: "Compare and review this API architecture for security risks and test gaps" }]
+      })
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.error.code, "fusion_budget_exceeded");
+    assert.equal(body.error.param, "fusion.maxUpstreamCalls");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    await rm(dir, { recursive: true, force: true });
   }
 });
 

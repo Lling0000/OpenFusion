@@ -98,12 +98,14 @@ Edit `openfusion.config.json`:
     "siteURL": "https://github.com/Lling0000/OpenFusion"
   },
   "fusion": {
+    "maxUpstreamCalls": 6,
     "toolRole": "writer"
   }
 }
 ```
 
 The upstream must expose an OpenAI-compatible `POST /chat/completions` endpoint.
+`maxUpstreamCalls` is checked before any upstream model call. A route needs `selected panel roles + judge + synthesis` calls, so the default `6` allows up to four panel models plus judge and synthesis.
 
 ## 4. Run Doctor
 

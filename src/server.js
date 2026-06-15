@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { MockChatClient } from "./mockClient.js";
 import { OpenAICompatibleClient } from "./openaiClient.js";
-import { runFusion } from "./fusion.js";
+import { fusionBudget, runFusion } from "./fusion.js";
 import { routeQuestion } from "./router.js";
 import { listModels } from "./models.js";
 
@@ -40,10 +40,12 @@ export async function startServer({ configPath, dryRun = false, port = Number(pr
         const body = await readJson(request);
         validateChatRequest(body);
         const question = transcriptFromChatBody(body);
+        const route = routeQuestion(question, config);
         return sendJson(response, 200, {
           object: "openfusion.route",
           requested_model: body.model ?? "openfusion/auto",
-          route: routeQuestion(question, config)
+          route,
+          budget: fusionBudget(route, config)
         });
       }
 
@@ -253,6 +255,7 @@ function toOpenAIResponse(result, requestedModel) {
       synthesizer: { role: result.final.role, model: result.final.model },
       trace: {
         id: result.trace?.id,
+        budget: result.trace?.budget,
         phase_count: result.trace?.phases?.length ?? 0,
         phases: (result.trace?.phases ?? []).map((phase) => ({
           phase: phase.phase,

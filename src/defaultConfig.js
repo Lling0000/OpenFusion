@@ -33,6 +33,7 @@ export const defaultConfig = {
     judgeRole: "verifier",
     synthesizerRole: "writer",
     toolRole: "writer",
+    maxUpstreamCalls: 6,
     timeoutMs: 90000
   }
 };

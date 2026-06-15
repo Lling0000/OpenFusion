@@ -75,6 +75,8 @@ test("doctor validates dry-run fusion pipeline without upstream key", async () =
   assert.ok(result.fusionSummary.panel.length >= defaultConfig.fusion.minPanel);
   assert.equal(result.fusionSummary.judge.role, defaultConfig.fusion.judgeRole);
   assert.equal(result.fusionSummary.synthesizer.role, defaultConfig.fusion.synthesizerRole);
+  assert.equal(result.fusionSummary.trace.budget.withinBudget, true);
+  assert.equal(result.fusionSummary.trace.budget.maxUpstreamCalls, defaultConfig.fusion.maxUpstreamCalls);
   assert.equal(result.fusionSummary.trace.phaseCount, result.fusionSummary.panel.length + 2);
   assert.equal(result.fusionSummary.evidence.hasMultiplePanelRoles, true);
   assert.equal(result.fusionSummary.evidence.hasJudgeNotes, true);
@@ -142,6 +144,7 @@ test("renders doctor results as a Markdown compatibility report", async () => {
       synthesizer: { role: "writer", model: "openai/gpt-4.1" },
       trace: {
         id: "of_test",
+        budget: { estimatedUpstreamCalls: 4, maxUpstreamCalls: 6, withinBudget: true },
         phaseCount: 4,
         latencyMs: 123,
         phases: [
@@ -174,6 +177,7 @@ test("renders doctor results as a Markdown compatibility report", async () => {
   assert.match(markdown, /Trace: `of_test` \(4 phases, 123 ms\)/);
   assert.match(markdown, /Judge: `verifier:google\/gemini-2\.5-pro`/);
   assert.match(markdown, /Synthesizer: `writer:openai\/gpt-4\.1`/);
+  assert.match(markdown, /Budget: 4\/6 upstream calls/);
   assert.match(markdown, /\| synthesis \| `writer` \| `openai\/gpt-4\.1` \| 30 ms \| `chatcmpl_1` \| yes \|/);
   assert.match(markdown, /Evidence: multiple panel roles, judge notes, synthesis, phase trace\./);
   assert.match(markdown, /Overall: \*\*FAIL\*\*/);
@@ -269,6 +273,7 @@ test("runs and renders eval receipts", async () => {
   assert.ok(receipt.summary.routingDiversity.roleCoverage.includes("reasoner"));
   assert.ok(receipt.summary.routingDiversity.roleCoverage.includes("writer"));
   assert.ok(receipt.results.some((item) => item.id === "coding-review" && item.selectedRoles.includes("coder")));
+  assert.ok(receipt.results.every((item) => item.trace.budget.withinBudget));
   assert.ok(receipt.results.every((item) => item.trace.phaseCount >= 4));
   assert.ok(receipt.results.every((item) => item.evidence.panel[0].contentSha256.length === 64));
   assert.match(markdown, /# OpenFusion Eval Receipt/);

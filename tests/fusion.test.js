@@ -17,9 +17,39 @@ test("runs a complete dry-run fusion pipeline", async () => {
   assert.ok(result.panel.some((item) => item.role === "coder"));
   assert.match(result.final.content, /OpenFusion/);
   assert.match(result.trace.id, /^of_/);
+  assert.equal(result.trace.budget.estimatedUpstreamCalls, result.panel.length + 2);
+  assert.equal(result.trace.budget.maxUpstreamCalls, defaultConfig.fusion.maxUpstreamCalls);
+  assert.equal(result.trace.budget.withinBudget, true);
   assert.equal(result.trace.phases.length, result.panel.length + 2);
   assert.ok(result.trace.phases.some((phase) => phase.phase === "judge" && phase.role === defaultConfig.fusion.judgeRole));
   assert.ok(result.trace.phases.every((phase) => typeof phase.latencyMs === "number"));
+});
+
+test("rejects routes that exceed the configured upstream call budget before calling models", async () => {
+  const calls = [];
+  const config = structuredClone(defaultConfig);
+  config.fusion.maxUpstreamCalls = 3;
+
+  await assert.rejects(
+    () => runFusion({
+      question: "Compare and review this API architecture for security risks and test gaps",
+      config,
+      client: {
+        async complete(request) {
+          calls.push(request);
+          return { model: request.model, content: "should not be called" };
+        }
+      }
+    }),
+    (error) => {
+      assert.equal(error.code, "fusion_budget_exceeded");
+      assert.equal(error.statusCode, 400);
+      assert.match(error.message, /exceeds fusion\.maxUpstreamCalls=3/);
+      return true;
+    }
+  );
+
+  assert.equal(calls.length, 0);
 });
 
 test("preserves multi-message transcript for routing and panel prompts", async () => {
