@@ -35,11 +35,12 @@ test("parses explicit chat and serve commands", () => {
   assert.equal(compat.command, "compat");
   assert.deepEqual(compat.targets, ["local|http://127.0.0.1:8787/v1|openfusion/fusion"]);
 
-  const adapter = parseArgs(["adapter", "codex", "--port", "9999", "--json"]);
+  const adapter = parseArgs(["adapter", "codex", "--port", "9999", "--json", "--command-name", "node src/cli.js"]);
   assert.equal(adapter.command, "adapter");
   assert.equal(adapter.adapterName, "codex");
   assert.equal(adapter.port, 9999);
   assert.equal(adapter.json, true);
+  assert.equal(adapter.commandName, "node src/cli.js");
 });
 
 test("lists virtual and role models", () => {
@@ -150,13 +151,15 @@ test("builds and renders a Codex adapter guide", () => {
   const guide = buildAdapterGuide(defaultConfig, {
     adapter: "codex",
     port: 9999,
-    configPath: "examples/api-relay.config.example.json"
+    configPath: "examples/api-relay.config.example.json",
+    commandName: "openfusion"
   });
   const markdown = renderAdapterGuide(guide);
 
   assert.equal(guide.local.baseURL, "http://127.0.0.1:9999/v1");
   assert.equal(guide.local.model, "openfusion/fusion");
   assert.equal(guide.upstream.apiKeyEnv, defaultConfig.upstream.apiKeyEnv);
+  assert.match(guide.commands.serveDryRun, /^openfusion serve/);
   assert.match(markdown, /# OpenFusion Codex Adapter/);
   assert.match(markdown, /base_url = http:\/\/127\.0\.0\.1:9999\/v1/);
   assert.match(markdown, /Tool-call requests use single-model passthrough/);

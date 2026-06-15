@@ -1,4 +1,6 @@
 import { createServer } from "node:http";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { MockChatClient } from "./mockClient.js";
 import { OpenAICompatibleClient } from "./openaiClient.js";
@@ -355,6 +357,16 @@ function httpError(statusCode, type, message, code, param) {
   return error;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url, process.argv[1])) {
   await startServer({ dryRun: process.argv.includes("--dry-run") });
+}
+
+function isMain(moduleURL, argvPath) {
+  if (!argvPath) return false;
+
+  try {
+    return realpathSync(fileURLToPath(moduleURL)) === realpathSync(argvPath);
+  } catch {
+    return fileURLToPath(moduleURL) === argvPath;
+  }
 }

@@ -14,6 +14,14 @@
   "bin": {
     "openfusion": "./src/cli.js"
   },
+  "files": [
+    "src",
+    "docs",
+    "examples",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
   "scripts": {
     "start": "node src/server.js",
     "cli": "node src/cli.js",
@@ -21,7 +29,9 @@
     "doctor": "node src/cli.js doctor",
     "smoke": "node src/cli.js --dry-run \"Debug this flaky React test and propose a patch\" --json",
     "check": "node scripts/check-release.js",
-    "check:providers": "node scripts/validate-provider-reports.js"
+    "check:providers": "node scripts/validate-provider-reports.js",
+    "check:package": "node scripts/package-smoke.js",
+    "prepublishOnly": "npm run check"
   },
   "keywords": [
     "openrouter",

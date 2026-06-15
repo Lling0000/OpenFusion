@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { MockChatClient } from "./mockClient.js";
 import { OpenAICompatibleClient } from "./openaiClient.js";
@@ -12,7 +14,7 @@ import { buildAdapterGuide, listAdapters, renderAdapterGuide } from "./adapters.
 
 const args = parseArgs(process.argv.slice(2));
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url, process.argv[1])) {
   await main(args);
 }
 
@@ -95,7 +97,8 @@ export async function main(args) {
     const guide = buildAdapterGuide(config, {
       adapter: args.adapterName,
       port: args.port,
-      configPath: args.config ?? "openfusion.config.json"
+      configPath: args.config ?? "openfusion.config.json",
+      commandName: args.commandName
     });
 
     if (args.json) {
@@ -171,6 +174,7 @@ export function parseArgs(argv) {
     else if (arg === "--format") parsed.format = argv[++index];
     else if (arg === "--target") parsed.targets.push(argv[++index]);
     else if (arg === "--compat-config") parsed.compatConfig = argv[++index];
+    else if (arg === "--command-name") parsed.commandName = argv[++index];
     else if (parsed.command === "adapter" && !parsed.adapterName) parsed.adapterName = arg;
     else questionParts.push(arg);
   }
@@ -187,6 +191,16 @@ function createUpstreamClient(config) {
     siteURL: config.upstream.siteURL,
     timeoutMs: config.fusion.timeoutMs
   });
+}
+
+function isMain(moduleURL, argvPath) {
+  if (!argvPath) return false;
+
+  try {
+    return realpathSync(fileURLToPath(moduleURL)) === realpathSync(argvPath);
+  } catch {
+    return fileURLToPath(moduleURL) === argvPath;
+  }
 }
 
 function printHuman(result) {
@@ -208,7 +222,7 @@ Usage:
   openfusion doctor [--real] [--probe-url http://127.0.0.1:8787/v1] [--json] [--format markdown]
   openfusion compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" [--json]
   openfusion compat --compat-config examples/compat.config.example.json
-  openfusion adapter [codex] [--json] [--port 8787] [--config openfusion.config.json]
+  openfusion adapter [codex] [--json] [--port 8787] [--config openfusion.config.json] [--command-name openfusion]
   openfusion serve [--dry-run] [--port 8787]
   openfusion chat [--dry-run] [--json] "your question"
   openfusion [--dry-run] [--json] [--config openfusion.config.json] "your question"

@@ -15,7 +15,20 @@ git status --short --branch
 - `npm run smoke`
 - `npm run doctor`
 - `node scripts/validate-provider-reports.js`
+- `node scripts/package-smoke.js`
 - `node scripts/secret-scan.js`
+
+## Package Smoke
+
+Release checks run `npm pack`, install the generated tarball into a temporary project, and verify the packaged `openfusion` bin can run:
+
+```bash
+npm run check:package
+```
+
+This catches missing published files, broken shebangs, and CLI drift before tagging.
+
+`npm publish` also runs `npm run check` through `prepublishOnly`.
 
 ## Manual Smoke
 

@@ -19,6 +19,7 @@ npm test
 npm run smoke
 npm run doctor
 npm run check:providers
+npm run check:package
 node src/cli.js serve --dry-run --port 8787
 ```
 

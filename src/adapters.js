@@ -8,7 +8,8 @@ export function buildAdapterGuide(config, {
   adapter = "codex",
   host = "127.0.0.1",
   port = 8787,
-  configPath = "openfusion.config.json"
+  configPath = "openfusion.config.json",
+  commandName = "openfusion"
 } = {}) {
   if (!adapters.has(adapter)) {
     throw new Error(`Unknown adapter "${adapter}". Available adapters: ${listAdapters().join(", ")}`);
@@ -32,16 +33,17 @@ export function buildAdapterGuide(config, {
       siteURL: config.upstream.siteURL
     },
     commands: {
-      init: `node src/cli.js init --output ${configPath}`,
-      serveDryRun: `node src/cli.js serve --dry-run --port ${port}`,
-      serveReal: `${config.upstream.apiKeyEnv}="..." node src/cli.js serve --config ${configPath} --port ${port}`,
-      doctorDryRun: "node src/cli.js doctor",
-      doctorReal: `${config.upstream.apiKeyEnv}="..." node src/cli.js doctor --real --config ${configPath}`,
-      probeLocal: `node src/cli.js doctor --probe-url ${localBaseURL} --probe-model ${model}`
+      init: `${commandName} init --output ${configPath}`,
+      serveDryRun: `${commandName} serve --dry-run --port ${port}`,
+      serveReal: `${config.upstream.apiKeyEnv}="..." ${commandName} serve --config ${configPath} --port ${port}`,
+      doctorDryRun: `${commandName} doctor`,
+      doctorReal: `${config.upstream.apiKeyEnv}="..." ${commandName} doctor --real --config ${configPath}`,
+      probeLocal: `${commandName} doctor --probe-url ${localBaseURL} --probe-model ${model}`
     },
     notes: [
       "Use the local base URL in Codex or any OpenAI-compatible client.",
       "Keep your real relay API key in the upstream environment variable, not in Codex client config.",
+      "If you are running from a git checkout, replace openfusion with node src/cli.js.",
       "Use dry-run mode first to verify routing without sending prompts upstream.",
       "Tool-call requests use single-model passthrough so coding-agent protocols remain stable."
     ]
