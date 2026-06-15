@@ -22,7 +22,21 @@ try {
   run("npm", ["init", "-y"], { cwd: installDir, quiet: true });
   run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", tarball], { cwd: installDir, quiet: true });
 
+  const help = run(binPath("openfusion"), ["--help"], { cwd: installDir, capture: true });
+  if (!help.stdout.includes("Usage:")) {
+    throw new Error("Packaged openfusion --help did not print usage text.");
+  }
+
   run(binPath("openfusion"), ["doctor"], { cwd: installDir, quiet: true });
+
+  const dryRun = run(binPath("openfusion"), ["--dry-run", "--json", "Review this Codex relay patch"], {
+    cwd: installDir,
+    capture: true
+  });
+  const dryRunResult = JSON.parse(dryRun.stdout);
+  if (!Array.isArray(dryRunResult.route?.selectedRoles) || dryRunResult.route.selectedRoles.length < 2) {
+    throw new Error("Packaged openfusion dry-run did not return a multi-role route.");
+  }
 
   const adapter = run(binPath("openfusion"), ["adapter", "codex", "--json"], {
     cwd: installDir,
@@ -35,6 +49,9 @@ try {
   const guide = JSON.parse(adapter.stdout);
   if (guide.local?.model !== "openfusion/fusion") {
     throw new Error("Packaged CLI returned an unexpected Codex adapter model.");
+  }
+  if (!guide.codex?.configToml?.includes('model_provider = "openfusion"')) {
+    throw new Error("Packaged Codex adapter guide did not include a Codex config.toml snippet.");
   }
   if (!guide.commands?.serveDryRun?.startsWith("openfusion serve")) {
     throw new Error("Packaged Codex adapter guide should use the openfusion bin command.");

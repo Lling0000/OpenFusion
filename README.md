@@ -19,6 +19,25 @@ LiteLLM routes LLM API calls. OpenFusion focuses on routing coding-agent work.
 
 ## Try It In 30 Seconds
 
+Run directly from GitHub with `npx`:
+
+```bash
+npx github:Lling0000/OpenFusion doctor
+npx github:Lling0000/OpenFusion --dry-run "Review this patch for security risks and missing tests" --json
+npx github:Lling0000/OpenFusion adapter codex
+```
+
+After the first npm release, the same flow becomes:
+
+```bash
+npx openfusion@latest doctor
+npx openfusion@latest adapter codex
+```
+
+Dry-run mode does not send prompts upstream. It uses a mock client so you can inspect routing and orchestration locally.
+
+From a git checkout:
+
 ```bash
 git clone https://github.com/Lling0000/OpenFusion.git
 cd OpenFusion
@@ -26,12 +45,10 @@ node src/cli.js doctor
 node src/cli.js --dry-run "Review this patch for security risks and missing tests" --json
 ```
 
-Dry-run mode does not send prompts upstream. It uses a mock client so you can inspect routing and orchestration locally.
-
 Start a local OpenAI-compatible server:
 
 ```bash
-node src/cli.js serve --dry-run --port 8787
+npx github:Lling0000/OpenFusion serve --dry-run --port 8787
 ```
 
 Call it like a normal chat completions endpoint:
@@ -87,6 +104,18 @@ This is especially useful when your Codex or editor setup already talks to an AP
 
 ## CLI
 
+Installed or `npx` usage:
+
+```bash
+openfusion init
+openfusion models
+openfusion doctor
+openfusion chat --dry-run "Compare two architectures for a Codex API relay" --json
+openfusion serve --dry-run --port 8787
+```
+
+From a git checkout, replace `openfusion` with `node src/cli.js`:
+
 ```bash
 node src/cli.js init
 node src/cli.js models
@@ -99,25 +128,25 @@ node src/cli.js serve --dry-run --port 8787
 
 ```bash
 export OPENROUTER_API_KEY="..."
-node src/cli.js doctor --real
+openfusion doctor --real
 ```
 
 Use `--probe-url` to verify an OpenAI-compatible endpoint, including chat, basic streaming, and tool-call round-trip behavior:
 
 ```bash
-node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1
+openfusion doctor --probe-url http://127.0.0.1:8787/v1
 ```
 
 Generate a Markdown compatibility report:
 
 ```bash
-node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1 --format markdown
+openfusion doctor --probe-url http://127.0.0.1:8787/v1 --format markdown
 ```
 
 Compare multiple providers or relays:
 
 ```bash
-node src/cli.js compat \
+openfusion compat \
   --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" \
   --target "openrouter|https://openrouter.ai/api/v1|openrouter/fusion|OPENROUTER_API_KEY"
 ```
@@ -133,7 +162,7 @@ openfusion adapter codex
 Create a config file:
 
 ```bash
-node src/cli.js init
+openfusion init
 ```
 
 Edit `openfusion.config.json` if your relay uses a different base URL or environment variable:
@@ -150,10 +179,25 @@ Edit `openfusion.config.json` if your relay uses a different base URL or environ
 Start OpenFusion:
 
 ```bash
-YOUR_RELAY_API_KEY="..." node src/cli.js serve --config openfusion.config.json --port 8787
+YOUR_RELAY_API_KEY="..." openfusion serve --config openfusion.config.json --port 8787
 ```
 
 Point Codex or another OpenAI-compatible client at:
+
+```toml
+# ~/.codex/config.toml
+model = "openfusion/fusion"
+model_provider = "openfusion"
+
+[model_providers.openfusion]
+name = "OpenFusion local"
+base_url = "http://127.0.0.1:8787/v1"
+env_key = "OPENFUSION_API_KEY"
+```
+
+Set `OPENFUSION_API_KEY` to any local placeholder value. Keep your real relay key in the environment variable used by OpenFusion, such as `YOUR_RELAY_API_KEY` or `OPENROUTER_API_KEY`.
+
+Generic OpenAI-compatible clients can use:
 
 ```text
 base_url = http://127.0.0.1:8787/v1
@@ -237,7 +281,7 @@ OpenFusion does not claim to reproduce OpenRouter's private routing logic. It is
 
 OpenFusion is an early, working prototype for local multi-model orchestration.
 
-It is useful today for experimenting with role-based routing, dry-run traces, and OpenAI-compatible relay integration. It is not yet a production gateway: streaming, tool-call passthrough, provider-specific quirks, budget controls, and eval receipts are still on the roadmap.
+It is useful today for experimenting with role-based routing, dry-run traces, and OpenAI-compatible relay integration. It is not yet a production gateway: token-by-token streaming, provider-specific quirks, budget controls, eval receipts, and fusion-aware tool orchestration are still on the roadmap. Basic tool-call passthrough already exists so coding-agent tool turns stay on one upstream model.
 
 If you adopt it, keep tests, code review, and domain-specific validation in the loop. Fusion improves coverage of perspectives; it does not guarantee correctness.
 

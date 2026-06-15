@@ -17,14 +17,27 @@ export function buildAdapterGuide(config, {
 
   const localBaseURL = `http://${host}:${port}/v1`;
   const localApiKey = "openfusion-local-placeholder";
+  const localApiKeyEnv = "OPENFUSION_API_KEY";
   const model = "openfusion/fusion";
+  const codexConfigToml = `model = "${model}"
+model_provider = "openfusion"
+
+[model_providers.openfusion]
+name = "OpenFusion local"
+base_url = "${localBaseURL}"
+env_key = "${localApiKeyEnv}"`;
 
   return {
     adapter,
     local: {
       baseURL: localBaseURL,
       apiKey: localApiKey,
+      apiKeyEnv: localApiKeyEnv,
       model
+    },
+    codex: {
+      configPath: "~/.codex/config.toml",
+      configToml: codexConfigToml
     },
     upstream: {
       baseURL: config.upstream.baseURL,
@@ -87,6 +100,20 @@ ${guide.commands.serveReal}
 \`\`\`
 
 ## 3. Configure ${titleCase(guide.adapter)}
+
+Add this to \`${guide.codex.configPath}\`:
+
+\`\`\`toml
+${guide.codex.configToml}
+\`\`\`
+
+Set a local placeholder key for Codex. The real upstream key stays with OpenFusion:
+
+\`\`\`bash
+export ${guide.local.apiKeyEnv}="${guide.local.apiKey}"
+\`\`\`
+
+Generic OpenAI-compatible clients can use the same values directly:
 
 \`\`\`text
 base_url = ${guide.local.baseURL}

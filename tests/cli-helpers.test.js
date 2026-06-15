@@ -158,9 +158,13 @@ test("builds and renders a Codex adapter guide", () => {
 
   assert.equal(guide.local.baseURL, "http://127.0.0.1:9999/v1");
   assert.equal(guide.local.model, "openfusion/fusion");
+  assert.equal(guide.local.apiKeyEnv, "OPENFUSION_API_KEY");
   assert.equal(guide.upstream.apiKeyEnv, defaultConfig.upstream.apiKeyEnv);
+  assert.match(guide.codex.configToml, /model_provider = "openfusion"/);
+  assert.match(guide.codex.configToml, /env_key = "OPENFUSION_API_KEY"/);
   assert.match(guide.commands.serveDryRun, /^openfusion serve/);
   assert.match(markdown, /# OpenFusion Codex Adapter/);
+  assert.match(markdown, /~\/\.codex\/config\.toml/);
   assert.match(markdown, /base_url = http:\/\/127\.0\.0\.1:9999\/v1/);
   assert.match(markdown, /Tool-call requests use single-model passthrough/);
 });

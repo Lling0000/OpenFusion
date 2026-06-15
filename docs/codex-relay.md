@@ -15,7 +15,73 @@ OpenFusion route -> panel -> judge -> synthesize
 Your OpenAI-compatible relay / OpenRouter / LiteLLM / vLLM gateway
 ```
 
-## 1. Create A Config
+## What Happens In Codex
+
+| Request type | OpenFusion behavior |
+| --- | --- |
+| Ordinary assistant answers | Routes to a role panel, judges disagreements, and synthesizes one answer. |
+| Tool-call turns | Uses single-model passthrough so Codex's tool protocol stays stable. |
+| `stream: true` | Returns SSE-compatible chunks after the response is ready; token-by-token streaming is not implemented yet. |
+
+## 1. Prove The Local Gateway First
+
+Start a dry-run server with no upstream calls:
+
+```bash
+openfusion serve --dry-run --port 8787
+```
+
+In another terminal, verify the local OpenAI-compatible surface:
+
+```bash
+openfusion doctor --probe-url http://127.0.0.1:8787/v1 --probe-model openfusion/fusion
+```
+
+You can also inspect the exact Codex settings:
+
+```bash
+openfusion adapter codex
+```
+
+## 2. Configure Codex
+
+Codex reads user-level configuration from `~/.codex/config.toml`. Provider auth and `model_providers` belong in user-level config, not a project `.codex/config.toml`.
+
+Add this snippet:
+
+```toml
+model = "openfusion/fusion"
+model_provider = "openfusion"
+
+[model_providers.openfusion]
+name = "OpenFusion local"
+base_url = "http://127.0.0.1:8787/v1"
+env_key = "OPENFUSION_API_KEY"
+```
+
+Set a local placeholder key for Codex:
+
+```bash
+export OPENFUSION_API_KEY="openfusion-local-placeholder"
+```
+
+Keep your real relay key in the environment variable used by OpenFusion, such as `OPENROUTER_API_KEY` or `YOUR_RELAY_API_KEY`.
+
+## 3. Create A Real Relay Config
+
+Installed usage:
+
+```bash
+openfusion init
+```
+
+Before the first npm release, you can run the same commands through GitHub:
+
+```bash
+npx github:Lling0000/OpenFusion init
+```
+
+From a git checkout:
 
 ```bash
 node src/cli.js init
@@ -39,24 +105,24 @@ Edit `openfusion.config.json`:
 
 The upstream must expose an OpenAI-compatible `POST /chat/completions` endpoint.
 
-## 2. Run Doctor
+## 4. Run Doctor
 
 Dry-run doctor does not call upstream:
 
 ```bash
-node src/cli.js doctor
+openfusion doctor
 ```
 
 Real doctor runs the fusion pipeline against the configured upstream:
 
 ```bash
-YOUR_RELAY_API_KEY="..." node src/cli.js doctor --real --config openfusion.config.json
+YOUR_RELAY_API_KEY="..." openfusion doctor --real --config openfusion.config.json
 ```
 
 Endpoint probe checks OpenAI-compatible HTTP behavior:
 
 ```bash
-YOUR_RELAY_API_KEY="..." node src/cli.js doctor \
+YOUR_RELAY_API_KEY="..." openfusion doctor \
   --config openfusion.config.json \
   --probe-url https://your-relay.example.com/v1 \
   --probe-model your-default-model
@@ -65,7 +131,7 @@ YOUR_RELAY_API_KEY="..." node src/cli.js doctor \
 Generate a Markdown report you can paste into issues or docs:
 
 ```bash
-YOUR_RELAY_API_KEY="..." node src/cli.js doctor \
+YOUR_RELAY_API_KEY="..." openfusion doctor \
   --config openfusion.config.json \
   --probe-url https://your-relay.example.com/v1 \
   --probe-model your-default-model \
@@ -75,13 +141,13 @@ YOUR_RELAY_API_KEY="..." node src/cli.js doctor \
 Compare several relays at once:
 
 ```bash
-node src/cli.js compat --compat-config examples/compat.config.example.json
+openfusion compat --compat-config examples/compat.config.example.json
 ```
 
 Or pass targets inline:
 
 ```bash
-node src/cli.js compat \
+openfusion compat \
   --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" \
   --target "your-relay|https://your-relay.example.com/v1|your-default-model|YOUR_RELAY_API_KEY"
 ```
@@ -93,15 +159,15 @@ The probe checks:
 - `POST /chat/completions` with `stream: true`
 - Tool-call round-trip: first assistant `tool_calls`, then follow-up `role: "tool"` message
 
-## 3. Start OpenFusion
+## 5. Start OpenFusion With The Real Relay
 
 ```bash
-YOUR_RELAY_API_KEY="..." node src/cli.js serve \
+YOUR_RELAY_API_KEY="..." openfusion serve \
   --config openfusion.config.json \
   --port 8787
 ```
 
-## 4. Point Codex Or Another Client At OpenFusion
+## 6. Point Any Generic OpenAI-Compatible Client At OpenFusion
 
 Use these values in any client that supports an OpenAI-compatible base URL:
 
