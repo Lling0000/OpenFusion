@@ -1,0 +1,54 @@
+{
+  "upstream": {
+    "baseURL": "https://openrouter.ai/api/v1",
+    "apiKeyEnv": "OPENROUTER_API_KEY",
+    "appName": "OpenFusion",
+    "siteURL": "https://github.com/Lling0000/OpenFusion"
+  },
+  "roles": {
+    "fast": {
+      "model": "openai/gpt-4.1-mini",
+      "description": "Fast general-purpose first pass."
+    },
+    "reasoner": {
+      "model": "anthropic/claude-3.7-sonnet",
+      "description": "Reasoning, planning, and tradeoffs."
+    },
+    "coder": {
+      "model": "deepseek/deepseek-chat-v3-0324",
+      "description": "Code, debugging, tests, and implementation."
+    },
+    "verifier": {
+      "model": "google/gemini-2.5-pro",
+      "description": "Verification, risk checks, edge cases, and critique."
+    },
+    "writer": {
+      "model": "openai/gpt-4.1",
+      "description": "Final synthesis and concise writing."
+    }
+  },
+  "routing": {
+    "rules": [
+      {
+        "role": "verifier",
+        "keywords": ["incident", "postmortem"],
+        "score": 3,
+        "reason": "incident-review signal"
+      }
+    ]
+  },
+  "fusion": {
+    "minPanel": 2,
+    "maxPanel": 4,
+    "judgeRole": "verifier",
+    "synthesizerRole": "writer",
+    "toolRole": "writer",
+    "maxUpstreamCalls": 6,
+    "costEstimate": {
+      "inputTokensPerCall": 2000,
+      "outputTokensPerCall": 1000,
+      "maxUsd": null
+    },
+    "timeoutMs": 90000
+  }
+}

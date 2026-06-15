@@ -17,17 +17,18 @@ Copy [env.example](env.example) into your shell and set a real key:
 export OPENROUTER_API_KEY="..."
 ```
 
-Use [openfusion.config.json](openfusion.config.json) as the starting config:
+Use [openfusion.config.example.json](openfusion.config.example.json) as the starting config:
 
 ```bash
-openfusion doctor --real --config examples/real-relay-openrouter/openfusion.config.json
+cp examples/real-relay-openrouter/openfusion.config.example.json openfusion.config.json
+openfusion doctor --real --config openfusion.config.json
 ```
 
 ## 3. Start The Local Gateway
 
 ```bash
 OPENROUTER_API_KEY="..." openfusion serve \
-  --config examples/real-relay-openrouter/openfusion.config.json \
+  --config openfusion.config.json \
   --port 8787
 ```
 

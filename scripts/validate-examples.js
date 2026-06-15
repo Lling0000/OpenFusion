@@ -16,7 +16,7 @@ const requiredFiles = [
   "examples/tool-passthrough/tool-follow-up.json",
   "examples/provider-compat/README.md",
   "examples/real-relay-openrouter/README.md",
-  "examples/real-relay-openrouter/openfusion.config.json",
+  "examples/real-relay-openrouter/openfusion.config.example.json",
   "examples/real-relay-openrouter/env.example"
 ];
 
