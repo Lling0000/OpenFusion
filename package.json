@@ -30,6 +30,7 @@
     "smoke": "node src/cli.js --dry-run \"Debug this flaky React test and propose a patch\" --json",
     "check": "node scripts/check-release.js",
     "check:providers": "node scripts/validate-provider-reports.js",
+    "check:examples": "node scripts/validate-examples.js",
     "check:package": "node scripts/package-smoke.js",
     "prepublishOnly": "npm run check"
   },

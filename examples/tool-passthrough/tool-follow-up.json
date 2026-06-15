@@ -1,0 +1,28 @@
+{
+  "model": "openfusion/fusion",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Call the test tool before answering."
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_openfusion_mock",
+          "type": "function",
+          "function": {
+            "name": "run_tests",
+            "arguments": "{\"reason\":\"dry-run tool passthrough\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_openfusion_mock",
+      "content": "{\"ok\":true,\"summary\":\"tests passed\"}"
+    }
+  ]
+}

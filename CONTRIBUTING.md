@@ -19,6 +19,7 @@ npm test
 npm run smoke
 npm run doctor
 npm run check:providers
+npm run check:examples
 npm run check:package
 node src/cli.js serve --dry-run --port 8787
 ```
@@ -27,6 +28,7 @@ node src/cli.js serve --dry-run --port 8787
 
 - Provider compatibility probes for OpenRouter, LiteLLM, vLLM, and custom relays.
 - Sanitized provider compatibility reports under `docs/providers/`.
+- Copy-paste examples under `examples/` for quickstart, tool passthrough, and provider compatibility workflows.
 - Tool-call round-trip fixtures for Codex-style agent loops.
 - Better routing rules for coding, review, docs, and architecture prompts.
 - Token-by-token streaming.

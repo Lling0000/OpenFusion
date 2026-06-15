@@ -1,0 +1,9 @@
+{
+  "model": "openfusion/fusion",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Debug this flaky API test and propose a minimal patch"
+    }
+  ]
+}

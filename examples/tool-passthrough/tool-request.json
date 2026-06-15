@@ -1,0 +1,28 @@
+{
+  "model": "openfusion/fusion",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "run_tests",
+        "description": "Run the local test suite.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    }
+  ],
+  "tool_choice": {
+    "type": "function",
+    "function": {
+      "name": "run_tests"
+    }
+  },
+  "messages": [
+    {
+      "role": "user",
+      "content": "Call the test tool before answering."
+    }
+  ]
+}

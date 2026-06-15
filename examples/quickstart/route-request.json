@@ -1,0 +1,9 @@
+{
+  "model": "openfusion/auto",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Review this patch for security and test risks"
+    }
+  ]
+}
