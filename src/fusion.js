@@ -78,13 +78,21 @@ export async function runFusion({ question, messages, config, client }) {
 }
 
 export function fusionBudget(route, config) {
-  const estimatedUpstreamCalls = route.selectedRoles.length + 2;
+  const phases = [
+    ...route.selectedRoles.map((role) => ({ phase: "panel", role })),
+    { phase: "judge", role: config.fusion.judgeRole },
+    { phase: "synthesis", role: config.fusion.synthesizerRole }
+  ];
+  const estimatedUpstreamCalls = phases.length;
   const maxUpstreamCalls = config.fusion.maxUpstreamCalls ?? Infinity;
+  const cost = estimateCost(phases, config);
 
   return {
     estimatedUpstreamCalls,
     maxUpstreamCalls,
-    withinBudget: estimatedUpstreamCalls <= maxUpstreamCalls
+    withinBudget: estimatedUpstreamCalls <= maxUpstreamCalls && cost.withinBudget,
+    callsWithinBudget: estimatedUpstreamCalls <= maxUpstreamCalls,
+    cost
   };
 }
 
@@ -104,13 +112,67 @@ export function transcriptFromMessages(messages = []) {
 function enforceFusionBudget(budget) {
   if (budget.withinBudget) return;
 
-  const error = new Error(`Fusion route needs ${budget.estimatedUpstreamCalls} upstream calls, which exceeds fusion.maxUpstreamCalls=${budget.maxUpstreamCalls}.`);
+  if (!budget.callsWithinBudget) {
+    const error = new Error(`Fusion route needs ${budget.estimatedUpstreamCalls} upstream calls, which exceeds fusion.maxUpstreamCalls=${budget.maxUpstreamCalls}.`);
+    error.name = "OpenFusionBudgetError";
+    error.statusCode = 400;
+    error.type = "invalid_request_error";
+    error.code = "fusion_budget_exceeded";
+    error.param = "fusion.maxUpstreamCalls";
+    throw error;
+  }
+
+  const error = new Error(`Fusion route estimated cost $${budget.cost.estimatedUsd.toFixed(6)}, which exceeds fusion.costEstimate.maxUsd=$${budget.cost.maxUsd}.`);
   error.name = "OpenFusionBudgetError";
   error.statusCode = 400;
   error.type = "invalid_request_error";
   error.code = "fusion_budget_exceeded";
-  error.param = "fusion.maxUpstreamCalls";
+  error.param = "fusion.costEstimate.maxUsd";
   throw error;
+}
+
+function estimateCost(phases, config) {
+  const settings = config.fusion.costEstimate ?? {};
+  const inputTokensPerCall = settings.inputTokensPerCall ?? 0;
+  const outputTokensPerCall = settings.outputTokensPerCall ?? 0;
+  const maxUsd = settings.maxUsd ?? null;
+  const items = phases.map(({ phase, role }) => {
+    const roleConfig = config.roles[role] ?? {};
+    const pricing = roleConfig.pricing;
+    const inputUsdPer1M = pricing?.inputUsdPer1M;
+    const outputUsdPer1M = pricing?.outputUsdPer1M;
+    const hasPricing = Number.isFinite(inputUsdPer1M) && Number.isFinite(outputUsdPer1M);
+    const estimatedUsd = hasPricing
+      ? ((inputTokensPerCall * inputUsdPer1M) + (outputTokensPerCall * outputUsdPer1M)) / 1_000_000
+      : null;
+
+    return {
+      phase,
+      role,
+      model: roleConfig.model,
+      inputTokens: inputTokensPerCall,
+      outputTokens: outputTokensPerCall,
+      inputUsdPer1M: hasPricing ? inputUsdPer1M : null,
+      outputUsdPer1M: hasPricing ? outputUsdPer1M : null,
+      estimatedUsd
+    };
+  });
+  const pricedItems = items.filter((item) => item.estimatedUsd !== null);
+  const estimatedUsd = pricedItems.length === items.length
+    ? items.reduce((total, item) => total + item.estimatedUsd, 0)
+    : null;
+
+  return {
+    available: estimatedUsd !== null,
+    estimatedUsd,
+    maxUsd,
+    withinBudget: estimatedUsd === null || maxUsd === null || estimatedUsd <= maxUsd,
+    assumptions: {
+      inputTokensPerCall,
+      outputTokensPerCall
+    },
+    items
+  };
 }
 
 function contentToText(content) {

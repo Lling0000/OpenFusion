@@ -68,7 +68,16 @@ function formatLatency(value) {
 
 function formatBudget(budget) {
   if (!budget) return "-";
-  return `${budget.estimatedUpstreamCalls}/${budget.maxUpstreamCalls} upstream calls`;
+  return [
+    `${budget.estimatedUpstreamCalls}/${budget.maxUpstreamCalls} upstream calls`,
+    formatCost(budget.cost)
+  ].filter(Boolean).join(", ");
+}
+
+function formatCost(cost) {
+  if (!cost?.available) return "cost not estimated";
+  const limit = cost.maxUsd === null ? "no cost limit" : `max $${cost.maxUsd}`;
+  return `estimated $${cost.estimatedUsd.toFixed(6)} (${limit})`;
 }
 
 function escapePipes(value) {

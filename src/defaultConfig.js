@@ -37,6 +37,11 @@ export const defaultConfig = {
     synthesizerRole: "writer",
     toolRole: "writer",
     maxUpstreamCalls: 6,
+    costEstimate: {
+      inputTokensPerCall: 2000,
+      outputTokensPerCall: 1000,
+      maxUsd: null
+    },
     timeoutMs: 90000
   }
 };

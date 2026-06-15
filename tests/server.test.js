@@ -27,6 +27,7 @@ test("serves OpenAI-compatible models and chat completions", async () => {
     assert.ok(route.route.selectedRoles.includes("verifier"));
     assert.equal(route.budget.withinBudget, true);
     assert.equal(route.budget.maxUpstreamCalls, defaultConfig.fusion.maxUpstreamCalls);
+    assert.equal(route.budget.cost.available, false);
 
     const completion = await fetchJson(`http://127.0.0.1:${port}/v1/chat/completions`, {
       method: "POST",
@@ -43,10 +44,40 @@ test("serves OpenAI-compatible models and chat completions", async () => {
     assert.ok(completion.openfusion.panel.length >= 2);
     assert.match(completion.openfusion.trace.id, /^of_/);
     assert.equal(completion.openfusion.trace.budget.withinBudget, true);
+    assert.equal(completion.openfusion.trace.budget.cost.available, false);
     assert.equal(completion.openfusion.trace.phase_count, completion.openfusion.panel.length + 2);
     assert.equal(typeof completion.usage.total_tokens, "number");
   } finally {
     await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("returns a budget error before fusion exceeds configured estimated cost", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "openfusion-cost-"));
+  const configPath = join(dir, "openfusion.config.json");
+  const config = pricedConfig();
+  config.fusion.costEstimate.maxUsd = 0.000001;
+  await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const server = await startServer({ configPath, dryRun: true, port: 0 });
+  const { port } = server.address();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "openfusion/fusion",
+        messages: [{ role: "user", content: "Review this API patch for tests" }]
+      })
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.error.code, "fusion_budget_exceeded");
+    assert.equal(body.error.param, "fusion.costEstimate.maxUsd");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    await rm(dir, { recursive: true, force: true });
   }
 });
 
@@ -300,4 +331,20 @@ async function fetchJson(url, init) {
   const response = await fetch(url, init);
   assert.equal(response.ok, true);
   return response.json();
+}
+
+function pricedConfig() {
+  const config = structuredClone(defaultConfig);
+  for (const role of Object.keys(config.roles)) {
+    config.roles[role].pricing = {
+      inputUsdPer1M: 1,
+      outputUsdPer1M: 2
+    };
+  }
+  config.fusion.costEstimate = {
+    inputTokensPerCall: 1000,
+    outputTokensPerCall: 500,
+    maxUsd: 1
+  };
+  return config;
 }

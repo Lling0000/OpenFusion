@@ -20,6 +20,7 @@ test("runs a complete dry-run fusion pipeline", async () => {
   assert.equal(result.trace.budget.estimatedUpstreamCalls, result.panel.length + 2);
   assert.equal(result.trace.budget.maxUpstreamCalls, defaultConfig.fusion.maxUpstreamCalls);
   assert.equal(result.trace.budget.withinBudget, true);
+  assert.equal(result.trace.budget.cost.available, false);
   assert.equal(result.trace.phases.length, result.panel.length + 2);
   assert.ok(result.trace.phases.some((phase) => phase.phase === "judge" && phase.role === defaultConfig.fusion.judgeRole));
   assert.ok(result.trace.phases.every((phase) => typeof phase.latencyMs === "number"));
@@ -45,6 +46,47 @@ test("rejects routes that exceed the configured upstream call budget before call
       assert.equal(error.code, "fusion_budget_exceeded");
       assert.equal(error.statusCode, 400);
       assert.match(error.message, /exceeds fusion\.maxUpstreamCalls=3/);
+      return true;
+    }
+  );
+
+  assert.equal(calls.length, 0);
+});
+
+test("estimates cost when all selected roles define pricing", async () => {
+  const config = pricedConfig();
+  const result = await runFusion({
+    question: "Review this API patch for tests",
+    config,
+    client: new MockChatClient()
+  });
+
+  assert.equal(result.trace.budget.cost.available, true);
+  assert.equal(result.trace.budget.cost.withinBudget, true);
+  assert.ok(result.trace.budget.cost.estimatedUsd > 0);
+  assert.equal(result.trace.budget.cost.items.length, result.trace.budget.estimatedUpstreamCalls);
+});
+
+test("rejects routes that exceed the configured estimated cost before calling models", async () => {
+  const calls = [];
+  const config = pricedConfig();
+  config.fusion.costEstimate.maxUsd = 0.000001;
+
+  await assert.rejects(
+    () => runFusion({
+      question: "Review this API patch for tests",
+      config,
+      client: {
+        async complete(request) {
+          calls.push(request);
+          return { model: request.model, content: "should not be called" };
+        }
+      }
+    }),
+    (error) => {
+      assert.equal(error.code, "fusion_budget_exceeded");
+      assert.equal(error.param, "fusion.costEstimate.maxUsd");
+      assert.match(error.message, /estimated cost/);
       return true;
     }
   );
@@ -78,3 +120,19 @@ test("preserves multi-message transcript for routing and panel prompts", async (
   assert.match(result.question, /Earlier answer context/);
   assert.match(result.question, /Now debug this failing test/);
 });
+
+function pricedConfig() {
+  const config = structuredClone(defaultConfig);
+  for (const role of Object.keys(config.roles)) {
+    config.roles[role].pricing = {
+      inputUsdPer1M: 1,
+      outputUsdPer1M: 2
+    };
+  }
+  config.fusion.costEstimate = {
+    inputTokensPerCall: 1000,
+    outputTokensPerCall: 500,
+    maxUsd: 1
+  };
+  return config;
+}

@@ -97,6 +97,15 @@ Edit `openfusion.config.json`:
     "appName": "OpenFusion",
     "siteURL": "https://github.com/Lling0000/OpenFusion"
   },
+  "roles": {
+    "coder": {
+      "model": "your-code-model",
+      "pricing": {
+        "inputUsdPer1M": 0.5,
+        "outputUsdPer1M": 1.5
+      }
+    }
+  },
   "routing": {
     "rules": [
       {
@@ -109,6 +118,11 @@ Edit `openfusion.config.json`:
   },
   "fusion": {
     "maxUpstreamCalls": 6,
+    "costEstimate": {
+      "inputTokensPerCall": 2000,
+      "outputTokensPerCall": 1000,
+      "maxUsd": 0.1
+    },
     "toolRole": "writer"
   }
 }
@@ -117,6 +131,7 @@ Edit `openfusion.config.json`:
 The upstream must expose an OpenAI-compatible `POST /chat/completions` endpoint.
 Custom routing rules add role-specific signals before OpenFusion selects the panel.
 `maxUpstreamCalls` is checked before any upstream model call. A route needs `selected panel roles + judge + synthesis` calls, so the default `6` allows up to four panel models plus judge and synthesis.
+Cost estimates are optional and only appear when every selected role has configured `pricing`; keep prices in sync with your relay.
 
 ## 4. Run Doctor
 

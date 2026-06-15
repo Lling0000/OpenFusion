@@ -290,7 +290,14 @@ function printRoutePreview(result) {
   console.log(`Judge: ${result.judge.role}:${result.judge.model}`);
   console.log(`Synthesizer: ${result.synthesizer.role}:${result.synthesizer.model}`);
   console.log(`Budget: ${result.budget.estimatedUpstreamCalls}/${result.budget.maxUpstreamCalls} upstream calls`);
+  console.log(`Cost: ${formatCost(result.budget.cost)}`);
   console.log(`Within budget: ${result.budget.withinBudget ? "yes" : "no"}`);
+}
+
+function formatCost(cost) {
+  if (!cost?.available) return "not estimated";
+  const limit = cost.maxUsd === null ? "no cost limit" : `max $${cost.maxUsd}`;
+  return `$${cost.estimatedUsd.toFixed(6)} (${limit})`;
 }
 
 function printHelp() {

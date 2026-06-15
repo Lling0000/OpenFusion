@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defaultConfig } from "../src/defaultConfig.js";
@@ -149,7 +150,12 @@ test("renders doctor results as a Markdown compatibility report", async () => {
       synthesizer: { role: "writer", model: "openai/gpt-4.1" },
       trace: {
         id: "of_test",
-        budget: { estimatedUpstreamCalls: 4, maxUpstreamCalls: 6, withinBudget: true },
+        budget: {
+          estimatedUpstreamCalls: 4,
+          maxUpstreamCalls: 6,
+          withinBudget: true,
+          cost: { available: false }
+        },
         phaseCount: 4,
         latencyMs: 123,
         phases: [
@@ -182,7 +188,7 @@ test("renders doctor results as a Markdown compatibility report", async () => {
   assert.match(markdown, /Trace: `of_test` \(4 phases, 123 ms\)/);
   assert.match(markdown, /Judge: `verifier:google\/gemini-2\.5-pro`/);
   assert.match(markdown, /Synthesizer: `writer:openai\/gpt-4\.1`/);
-  assert.match(markdown, /Budget: 4\/6 upstream calls/);
+  assert.match(markdown, /Budget: 4\/6 upstream calls, cost not estimated/);
   assert.match(markdown, /\| synthesis \| `writer` \| `openai\/gpt-4\.1` \| 30 ms \| `chatcmpl_1` \| yes \|/);
   assert.match(markdown, /Evidence: multiple panel roles, judge notes, synthesis, phase trace\./);
   assert.match(markdown, /Overall: \*\*FAIL\*\*/);
@@ -313,7 +319,7 @@ test("builds a single fusion receipt", async () => {
 });
 
 test("cli serve keeps a foreground server alive", async () => {
-  const port = 18787;
+  const port = await getFreePort();
   const child = spawn(process.execPath, ["src/cli.js", "serve", "--dry-run", "--port", String(port)], {
     cwd: process.cwd(),
     stdio: ["ignore", "pipe", "pipe"]
@@ -366,4 +372,15 @@ async function waitForHealth(url) {
   }
 
   throw lastError ?? new Error("Timed out waiting for health check.");
+}
+
+function getFreePort() {
+  return new Promise((resolve, reject) => {
+    const server = createNetServer();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address();
+      server.close(() => resolve(port));
+    });
+  });
 }

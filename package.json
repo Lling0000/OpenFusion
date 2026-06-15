@@ -25,7 +25,7 @@
   "scripts": {
     "start": "node src/server.js",
     "cli": "node src/cli.js",
-    "test": "node --test",
+    "test": "node --test --test-concurrency=1",
     "doctor": "node src/cli.js doctor",
     "smoke": "node src/cli.js --dry-run \"Debug this flaky React test and propose a patch\" --json",
     "eval": "node src/cli.js eval --dry-run",

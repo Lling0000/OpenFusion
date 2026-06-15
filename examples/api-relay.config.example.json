@@ -8,23 +8,43 @@
   "roles": {
     "fast": {
       "model": "your-fast-model",
-      "description": "Fast and cheap first pass."
+      "description": "Fast and cheap first pass.",
+      "pricing": {
+        "inputUsdPer1M": 0.1,
+        "outputUsdPer1M": 0.4
+      }
     },
     "reasoner": {
       "model": "your-reasoning-model",
-      "description": "Planning, tradeoffs, and difficult reasoning."
+      "description": "Planning, tradeoffs, and difficult reasoning.",
+      "pricing": {
+        "inputUsdPer1M": 3,
+        "outputUsdPer1M": 15
+      }
     },
     "coder": {
       "model": "your-code-model",
-      "description": "Code, debugging, tests, and implementation."
+      "description": "Code, debugging, tests, and implementation.",
+      "pricing": {
+        "inputUsdPer1M": 0.5,
+        "outputUsdPer1M": 1.5
+      }
     },
     "verifier": {
       "model": "your-review-model",
-      "description": "Verification, risk checks, and critique."
+      "description": "Verification, risk checks, and critique.",
+      "pricing": {
+        "inputUsdPer1M": 2,
+        "outputUsdPer1M": 8
+      }
     },
     "writer": {
       "model": "your-polish-model",
-      "description": "Final synthesis and concise writing."
+      "description": "Final synthesis and concise writing.",
+      "pricing": {
+        "inputUsdPer1M": 1,
+        "outputUsdPer1M": 4
+      }
     }
   },
   "routing": {
@@ -44,6 +64,11 @@
     "synthesizerRole": "writer",
     "toolRole": "writer",
     "maxUpstreamCalls": 6,
+    "costEstimate": {
+      "inputTokensPerCall": 2000,
+      "outputTokensPerCall": 1000,
+      "maxUsd": 0.1
+    },
     "timeoutMs": 90000
   }
 }

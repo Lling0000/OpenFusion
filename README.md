@@ -189,6 +189,15 @@ Edit `openfusion.config.json` if your relay uses a different base URL or environ
     "baseURL": "https://your-relay.example.com/v1",
     "apiKeyEnv": "YOUR_RELAY_API_KEY"
   },
+  "roles": {
+    "coder": {
+      "model": "your-code-model",
+      "pricing": {
+        "inputUsdPer1M": 0.5,
+        "outputUsdPer1M": 1.5
+      }
+    }
+  },
   "routing": {
     "rules": [
       {
@@ -200,7 +209,12 @@ Edit `openfusion.config.json` if your relay uses a different base URL or environ
     ]
   },
   "fusion": {
-    "maxUpstreamCalls": 6
+    "maxUpstreamCalls": 6,
+    "costEstimate": {
+      "inputTokensPerCall": 2000,
+      "outputTokensPerCall": 1000,
+      "maxUsd": 0.1
+    }
   }
 }
 ```
@@ -208,6 +222,8 @@ Edit `openfusion.config.json` if your relay uses a different base URL or environ
 Custom routing rules add to the built-in coding, reasoning, verification, and writing signals. Use `keywords` for simple matches or `patterns` for JavaScript regular expressions.
 
 `maxUpstreamCalls` is a pre-flight safety guard. OpenFusion estimates `selected panel roles + judge + synthesis` and rejects the request before any upstream call if the route would exceed the limit.
+
+Cost estimates are optional and config-driven. Add `pricing` to every selected role if you want `route`, `doctor`, and traces to show estimated USD. Keep those prices in sync with your relay; OpenFusion does not fetch live provider prices.
 
 Start OpenFusion:
 
