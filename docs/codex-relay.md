@@ -111,6 +111,12 @@ api_key = any-local-placeholder
 model = openfusion/fusion
 ```
 
+Or print the same values directly from the CLI:
+
+```bash
+node src/cli.js adapter codex
+```
+
 If your Codex installation already points at an API relay, replace that relay URL with the local OpenFusion URL, and put the original relay URL in `openfusion.config.json`.
 
 ## Compatibility Notes

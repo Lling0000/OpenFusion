@@ -13,6 +13,7 @@ import { startServer } from "../src/server.js";
 import { probeEndpoint } from "../src/probe.js";
 import { renderDoctorMarkdown } from "../src/report.js";
 import { loadCompatTargets, renderCompatibilityMatrixMarkdown, runCompatibilityMatrix } from "../src/compat.js";
+import { buildAdapterGuide, listAdapters, renderAdapterGuide } from "../src/adapters.js";
 
 test("parses explicit chat and serve commands", () => {
   const chat = parseArgs(["chat", "--dry-run", "--json", "Fix", "this", "test"]);
@@ -33,6 +34,12 @@ test("parses explicit chat and serve commands", () => {
   const compat = parseArgs(["compat", "--target", "local|http://127.0.0.1:8787/v1|openfusion/fusion"]);
   assert.equal(compat.command, "compat");
   assert.deepEqual(compat.targets, ["local|http://127.0.0.1:8787/v1|openfusion/fusion"]);
+
+  const adapter = parseArgs(["adapter", "codex", "--port", "9999", "--json"]);
+  assert.equal(adapter.command, "adapter");
+  assert.equal(adapter.adapterName, "codex");
+  assert.equal(adapter.port, 9999);
+  assert.equal(adapter.json, true);
 });
 
 test("lists virtual and role models", () => {
@@ -134,6 +141,31 @@ test("compatibility matrix requires at least one target", async () => {
   await assert.rejects(
     () => runCompatibilityMatrix({ targets: [] }),
     /requires at least one target/
+  );
+});
+
+test("builds and renders a Codex adapter guide", () => {
+  assert.deepEqual(listAdapters(), ["codex"]);
+
+  const guide = buildAdapterGuide(defaultConfig, {
+    adapter: "codex",
+    port: 9999,
+    configPath: "examples/api-relay.config.example.json"
+  });
+  const markdown = renderAdapterGuide(guide);
+
+  assert.equal(guide.local.baseURL, "http://127.0.0.1:9999/v1");
+  assert.equal(guide.local.model, "openfusion/fusion");
+  assert.equal(guide.upstream.apiKeyEnv, defaultConfig.upstream.apiKeyEnv);
+  assert.match(markdown, /# OpenFusion Codex Adapter/);
+  assert.match(markdown, /base_url = http:\/\/127\.0\.0\.1:9999\/v1/);
+  assert.match(markdown, /Tool-call requests use single-model passthrough/);
+});
+
+test("rejects unknown adapters", () => {
+  assert.throws(
+    () => buildAdapterGuide(defaultConfig, { adapter: "unknown" }),
+    /Unknown adapter/
   );
 });
 
