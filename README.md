@@ -162,7 +162,7 @@ Print a Codex-specific local adapter guide:
 openfusion adapter codex
 ```
 
-Generate a dry-run eval receipt for routing/orchestration evidence:
+Generate a dry-run eval receipt for routing/orchestration evidence. The receipt includes a Routing Diversity section that shows whether different prompts selected different role/model panels:
 
 ```bash
 openfusion eval --dry-run

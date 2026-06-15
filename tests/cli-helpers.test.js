@@ -262,11 +262,21 @@ test("runs and renders eval receipts", async () => {
   assert.equal(receipt.object, "openfusion.eval_receipt");
   assert.equal(receipt.schema, "openfusion.eval_receipt.v1");
   assert.equal(receipt.summary.failed, 0);
+  assert.equal(receipt.summary.routingDiversity.totalCases, receipt.summary.total);
+  assert.equal(receipt.summary.routingDiversity.hasDistinctPanels, true);
+  assert.ok(receipt.summary.routingDiversity.uniquePanelCount >= 2);
+  assert.ok(receipt.summary.routingDiversity.roleCoverage.includes("coder"));
+  assert.ok(receipt.summary.routingDiversity.roleCoverage.includes("reasoner"));
+  assert.ok(receipt.summary.routingDiversity.roleCoverage.includes("writer"));
   assert.ok(receipt.results.some((item) => item.id === "coding-review" && item.selectedRoles.includes("coder")));
   assert.ok(receipt.results.every((item) => item.trace.phaseCount >= 4));
   assert.ok(receipt.results.every((item) => item.evidence.panel[0].contentSha256.length === 64));
   assert.match(markdown, /# OpenFusion Eval Receipt/);
   assert.match(markdown, /\| `coding-review` \| PASS \|/);
+  assert.match(markdown, /## Routing Diversity/);
+  assert.match(markdown, /Unique panels: \*\*[2-9]\/3\*\*/);
+  assert.match(markdown, /Distinct routing: \*\*yes\*\*/);
+  assert.match(markdown, /\| `architecture-tradeoff` \| `coder` \+ `reasoner` \+ `fast` \+ `verifier` \|/);
   assert.match(markdown, /does not prove answer quality/);
 });
 

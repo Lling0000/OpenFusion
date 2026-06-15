@@ -65,7 +65,8 @@ export async function runEvalSuite({ config, client, cases = defaultEvalCases } 
     summary: {
       total: results.length,
       passed,
-      failed: results.length - passed
+      failed: results.length - passed,
+      routingDiversity: routingDiversity(results)
     },
     results
   };
@@ -98,6 +99,8 @@ export function renderEvalMarkdown(receipt) {
     `Overall: **${receipt.summary.failed === 0 ? "PASS" : "FAIL"}** (${receipt.summary.passed}/${receipt.summary.total})`,
     "",
     rows.join("\n"),
+    "",
+    renderRoutingDiversityMarkdown(receipt.summary.routingDiversity),
     ...(failures.length ? ["", "## Missing Expected Roles", "", failures.join("\n")] : []),
     "",
     "This receipt validates routing and orchestration behavior. It does not prove answer quality without real provider calls and task-specific grading."
@@ -161,6 +164,54 @@ function fusionEvidence(fusion) {
       contentSha256: sha256(fusion.final.content)
     }
   };
+}
+
+function routingDiversity(results) {
+  const panelSignatures = results.map((item) => ({
+    caseId: item.id,
+    signature: item.selectedRoles.join("+"),
+    selectedRoles: item.selectedRoles
+  }));
+  const uniqueSignatures = [...new Set(panelSignatures.map((item) => item.signature))];
+  const roleUsage = {};
+
+  for (const item of panelSignatures) {
+    for (const role of item.selectedRoles) {
+      roleUsage[role] = (roleUsage[role] ?? 0) + 1;
+    }
+  }
+
+  return {
+    uniquePanelCount: uniqueSignatures.length,
+    totalCases: results.length,
+    hasDistinctPanels: uniqueSignatures.length > 1,
+    roleCoverage: Object.keys(roleUsage).sort(),
+    roleUsage,
+    panelSignatures
+  };
+}
+
+function renderRoutingDiversityMarkdown(diversity) {
+  if (!diversity) return "";
+
+  const rows = [
+    "| Case | Panel Signature |",
+    "| --- | --- |",
+    ...diversity.panelSignatures.map((item) => [
+      `| \`${escapePipes(item.caseId)}\``,
+      `${item.selectedRoles.map((role) => `\`${escapePipes(role)}\``).join(" + ")} |`
+    ].join(" | "))
+  ];
+
+  return [
+    "## Routing Diversity",
+    "",
+    `Unique panels: **${diversity.uniquePanelCount}/${diversity.totalCases}**`,
+    `Role coverage: ${diversity.roleCoverage.map((role) => `\`${escapePipes(role)}\``).join(", ")}`,
+    `Distinct routing: **${diversity.hasDistinctPanels ? "yes" : "no"}**`,
+    "",
+    rows.join("\n")
+  ].join("\n");
 }
 
 function traceSummary(trace = {}) {

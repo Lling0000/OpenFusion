@@ -17,6 +17,13 @@ The built-in suite checks prompts for coding review, architecture tradeoffs, and
 - Trace id and phase count.
 - Content hashes and short excerpts for auditability.
 
+It also reports routing diversity across the built-in prompts:
+
+- Unique panel count.
+- Covered roles.
+- Whether different prompts selected distinct role/model panels.
+- A per-case panel signature table.
+
 ## Single Prompt Receipt
 
 ```bash
