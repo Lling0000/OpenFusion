@@ -62,6 +62,15 @@ export async function startServer({ configPath, dryRun = false, port = Number(pr
           return sendJson(response, 200, payload);
         }
 
+        if (isExplicitRoleModel(body.model, config)) {
+          const payload = await runRolePassthrough({ body, config, client });
+          if (body.stream) {
+            return sendSseCompletion(response, payload);
+          }
+
+          return sendJson(response, 200, payload);
+        }
+
         const result = await runFusion({ messages: body.messages, config, client });
         const payload = toOpenAIResponse(result, body.model ?? "openfusion/fusion");
 
@@ -137,6 +146,31 @@ async function runToolPassthrough({ body, config, client }) {
       reason: "Tool calls bypass fusion so the client can continue the tool-call protocol with one upstream model."
     }
   };
+}
+
+async function runRolePassthrough({ body, config, client }) {
+  const requestedModel = body.model;
+  const upstreamModel = resolveUpstreamModel(requestedModel, config);
+  const upstreamPayload = await client.completeChat({
+    ...pickPassthroughBody(body),
+    model: upstreamModel
+  });
+
+  return {
+    ...normalizeChatCompletion(upstreamPayload, requestedModel),
+    openfusion: {
+      mode: "role-passthrough",
+      requested_model: requestedModel,
+      upstream_model: upstreamModel,
+      reason: "Explicit OpenFusion role models use one configured upstream model instead of the fusion panel."
+    }
+  };
+}
+
+function isExplicitRoleModel(requestedModel, config) {
+  if (!requestedModel?.startsWith("openfusion/")) return false;
+  const role = requestedModel.split("/")[1];
+  return Boolean(config.roles[role]);
 }
 
 function resolveUpstreamModel(requestedModel, config, { toolPassthrough = false } = {}) {

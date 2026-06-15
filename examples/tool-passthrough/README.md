@@ -48,6 +48,6 @@ This request also stays in passthrough mode because it contains `role: "tool"`.
 
 ## Notes
 
-- `model: "openfusion/coder"` sends tool turns to the configured `coder` model.
-- `model: "openfusion/fusion"` uses `fusion.toolRole`, which defaults to `writer`.
+- `model: "openfusion/coder"` sends normal chat and tool turns to the configured `coder` model.
+- `model: "openfusion/fusion"` uses the full fusion pipeline for normal chat and `fusion.toolRole` for tool turns.
 - Multi-model tool orchestration is intentionally not enabled yet; it is a roadmap item after passthrough compatibility is stable.

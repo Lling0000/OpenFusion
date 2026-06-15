@@ -79,6 +79,59 @@ test("returns a budget error before fusion exceeds configured upstream calls", a
   }
 });
 
+test("passes explicit role model chats through one upstream model", async () => {
+  const server = await startServer({ dryRun: true, port: 0 });
+  const { port } = server.address();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "openfusion/coder",
+        messages: [{ role: "user", content: "Debug this failing API test" }]
+      })
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.object, "chat.completion");
+    assert.equal(body.model, "openfusion/coder");
+    assert.equal(body.openfusion.mode, "role-passthrough");
+    assert.equal(body.openfusion.upstream_model, defaultConfig.roles.coder.model);
+    assert.equal(body.choices[0].message.content, "OpenFusion mock passthrough response.");
+    assert.equal(body.openfusion.panel, undefined);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("streams explicit role model passthrough responses as SSE chunks", async () => {
+  const server = await startServer({ dryRun: true, port: 0 });
+  const { port } = server.address();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "openfusion/writer",
+        stream: true,
+        messages: [{ role: "user", content: "Rewrite this README section" }]
+      })
+    });
+
+    assert.equal(response.ok, true);
+    assert.match(response.headers.get("content-type"), /text\/event-stream/);
+    const body = await response.text();
+    assert.match(body, /role-passthrough/);
+    assert.match(body, /openfusion\/writer/);
+    assert.match(body, /data: \[DONE\]/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test("returns SSE chunks for stream requests", async () => {
   const server = await startServer({ dryRun: true, port: 0 });
   const { port } = server.address();

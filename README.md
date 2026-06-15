@@ -335,6 +335,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development commands and pull request
 
 - Dry-run mode sends no prompt data upstream.
 - Real mode sends your prompt to each selected upstream model role.
+- Explicit role models such as `openfusion/coder` send normal chat requests to one configured upstream model.
 - Tool-call passthrough sends a tool turn to one upstream model only, using `fusion.toolRole` by default for virtual models.
 - Do not put secrets in prompts or config files.
 - OpenFusion is an orchestration layer, not a guarantee that a fused answer is correct. Keep tests, review, and domain-specific validation in the loop.

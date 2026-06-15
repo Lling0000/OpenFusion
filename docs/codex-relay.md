@@ -197,12 +197,13 @@ OpenFusion currently preserves the full chat `messages` transcript and supports 
 
 Tool calls use a basic passthrough path. If a request includes `tools`, `tool_choice`, `parallel_tool_calls`, `role: "tool"`, or an assistant message with `tool_calls`, OpenFusion bypasses multi-model fusion and sends the request to one upstream model.
 
-This is intentional: coding agents often depend on a strict tool-call protocol, and mixing multiple panel responses into one tool-call turn would be unsafe. Fusion still applies to ordinary assistant-answer requests; tool turns preserve protocol continuity first.
+This is intentional: coding agents often depend on a strict tool-call protocol, and mixing multiple panel responses into one tool-call turn would be unsafe. Fusion still applies to ordinary assistant-answer requests that use `openfusion/fusion` or `openfusion/auto`; explicit role models use one upstream role model.
 
 Selection rules:
 
-- `model: "openfusion/<role>"` uses that role's configured upstream model.
-- `model: "openfusion/fusion"` or `model: "openfusion/auto"` uses `fusion.toolRole`.
+- `model: "openfusion/fusion"` or `model: "openfusion/auto"` runs the route -> panel -> judge -> synthesis pipeline for normal assistant answers.
+- `model: "openfusion/<role>"` uses that role's configured upstream model directly for normal assistant answers.
+- Tool-call requests always use single-model passthrough. Explicit role models use that role; virtual fusion models use `fusion.toolRole`.
 - The default `fusion.toolRole` is `writer`; configure it to a model that your upstream relay has verified for tool/function calling.
 
 OpenFusion forwards the upstream response shape through the local OpenAI-compatible response and adds `openfusion.mode = "tool-passthrough"` trace metadata. OpenFusion does not execute tools; the client remains responsible for running tools and sending follow-up `role: "tool"` messages.
