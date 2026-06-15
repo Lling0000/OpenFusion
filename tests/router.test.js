@@ -16,3 +16,35 @@ test("routes architecture tradeoff questions to reasoner", () => {
 
   assert.ok(route.selectedRoles.includes("reasoner"));
 });
+
+test("applies custom routing rules from config", () => {
+  const config = structuredClone(defaultConfig);
+  config.routing.rules = [
+    {
+      role: "writer",
+      keywords: ["changelog"],
+      score: 5,
+      reason: "release-note signal"
+    }
+  ];
+
+  const route = routeQuestion("Draft a changelog for this API relay release", config);
+
+  assert.equal(route.selectedRoles[0], "writer");
+  assert.equal(route.scores.writer, 5);
+  assert.match(route.rationale, /release-note signal/);
+});
+
+test("ignores custom rules for unknown roles and invalid regex patterns", () => {
+  const config = structuredClone(defaultConfig);
+  config.routing.rules = [
+    { role: "missing", keywords: ["force"], score: 10 },
+    { role: "reasoner", patterns: ["["], score: 10 }
+  ];
+
+  const route = routeQuestion("force this custom route", config);
+
+  assert.equal(route.scores.missing, undefined);
+  assert.equal(route.scores.reasoner, 0);
+  assert.ok(route.selectedRoles.includes("fast"));
+});

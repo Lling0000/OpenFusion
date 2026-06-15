@@ -27,6 +27,9 @@ export const defaultConfig = {
       description: "Polish model for concise final synthesis."
     }
   },
+  routing: {
+    rules: []
+  },
   fusion: {
     minPanel: 2,
     maxPanel: 4,

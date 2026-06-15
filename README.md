@@ -189,11 +189,23 @@ Edit `openfusion.config.json` if your relay uses a different base URL or environ
     "baseURL": "https://your-relay.example.com/v1",
     "apiKeyEnv": "YOUR_RELAY_API_KEY"
   },
+  "routing": {
+    "rules": [
+      {
+        "role": "verifier",
+        "keywords": ["incident", "postmortem"],
+        "score": 3,
+        "reason": "incident-review signal"
+      }
+    ]
+  },
   "fusion": {
     "maxUpstreamCalls": 6
   }
 }
 ```
+
+Custom routing rules add to the built-in coding, reasoning, verification, and writing signals. Use `keywords` for simple matches or `patterns` for JavaScript regular expressions.
 
 `maxUpstreamCalls` is a pre-flight safety guard. OpenFusion estimates `selected panel roles + judge + synthesis` and rejects the request before any upstream call if the route would exceed the limit.
 

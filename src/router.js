@@ -32,13 +32,24 @@ const SKILL_RULES = [
 export function routeQuestion(question, config) {
   const roles = Object.keys(config.roles);
   const scored = new Map(roles.map((role) => [role, 0]));
+  const matchedReasons = [];
 
   for (const rule of SKILL_RULES) {
     for (const pattern of rule.patterns) {
       if (pattern.test(question)) {
         scored.set(rule.role, (scored.get(rule.role) ?? 0) + 2);
+        addReason(matchedReasons, builtInReason(rule.role));
       }
     }
+  }
+
+  for (const rule of customRules(config)) {
+    if (!config.roles[rule.role]) continue;
+    if (!matchesCustomRule(question, rule)) continue;
+
+    const score = Number.isFinite(rule.score) ? rule.score : 3;
+    scored.set(rule.role, (scored.get(rule.role) ?? 0) + score);
+    addReason(matchedReasons, rule.reason ?? `custom ${rule.role} signal`);
   }
 
   scored.set("fast", (scored.get("fast") ?? 0) + 1);
@@ -62,25 +73,46 @@ export function routeQuestion(question, config) {
   return {
     selectedRoles: selected,
     scores: Object.fromEntries(ranked),
-    rationale: explainRoute(question, selected)
+    rationale: explainRoute(selected, matchedReasons)
   };
 }
 
-function explainRoute(question, selectedRoles) {
-  const reasons = [];
-  if (/code|bug|debug|test|代码|测试|修复|调试/i.test(question)) {
-    reasons.push("coding/debugging signals");
-  }
-  if (/compare|tradeoff|architecture|方案|架构|比较|取舍/i.test(question)) {
-    reasons.push("architecture or tradeoff signals");
-  }
-  if (/verify|risk|security|review|风险|安全|审查|验证/i.test(question)) {
-    reasons.push("verification and risk signals");
-  }
-  if (/write|summarize|readme|docs|文档|总结|改写/i.test(question)) {
-    reasons.push("writing or documentation signals");
-  }
+function customRules(config) {
+  return Array.isArray(config.routing?.rules) ? config.routing.rules : [];
+}
 
+function matchesCustomRule(question, rule) {
+  const keywords = Array.isArray(rule.keywords) ? rule.keywords : [];
+  const patterns = Array.isArray(rule.patterns) ? rule.patterns : [];
+
+  return keywords.some((keyword) => question.toLowerCase().includes(String(keyword).toLowerCase()))
+    || patterns.some((pattern) => safeRegexTest(pattern, question));
+}
+
+function safeRegexTest(pattern, question) {
+  try {
+    return new RegExp(pattern, "i").test(question);
+  } catch {
+    return false;
+  }
+}
+
+function builtInReason(role) {
+  return {
+    coder: "coding/debugging signals",
+    reasoner: "architecture or tradeoff signals",
+    verifier: "verification and risk signals",
+    writer: "writing or documentation signals"
+  }[role] ?? `${role} signals`;
+}
+
+function addReason(reasons, reason) {
+  if (reason && !reasons.includes(reason)) {
+    reasons.push(reason);
+  }
+}
+
+function explainRoute(selectedRoles, reasons) {
   return reasons.length
     ? `Selected ${selectedRoles.join(", ")} because the prompt contains ${reasons.join(", ")}.`
     : `Selected ${selectedRoles.join(", ")} as a balanced default panel.`;

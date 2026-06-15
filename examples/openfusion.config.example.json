@@ -27,6 +27,16 @@
       "description": "Final synthesis and concise writing."
     }
   },
+  "routing": {
+    "rules": [
+      {
+        "role": "verifier",
+        "keywords": ["incident", "postmortem"],
+        "score": 3,
+        "reason": "incident-review signal"
+      }
+    ]
+  },
   "fusion": {
     "minPanel": 2,
     "maxPanel": 4,

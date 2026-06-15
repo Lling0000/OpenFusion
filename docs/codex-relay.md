@@ -97,6 +97,16 @@ Edit `openfusion.config.json`:
     "appName": "OpenFusion",
     "siteURL": "https://github.com/Lling0000/OpenFusion"
   },
+  "routing": {
+    "rules": [
+      {
+        "role": "verifier",
+        "keywords": ["incident", "postmortem"],
+        "score": 3,
+        "reason": "incident-review signal"
+      }
+    ]
+  },
   "fusion": {
     "maxUpstreamCalls": 6,
     "toolRole": "writer"
@@ -105,6 +115,7 @@ Edit `openfusion.config.json`:
 ```
 
 The upstream must expose an OpenAI-compatible `POST /chat/completions` endpoint.
+Custom routing rules add role-specific signals before OpenFusion selects the panel.
 `maxUpstreamCalls` is checked before any upstream model call. A route needs `selected panel roles + judge + synthesis` calls, so the default `6` allows up to four panel models plus judge and synthesis.
 
 ## 4. Run Doctor
