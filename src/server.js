@@ -250,7 +250,19 @@ function toOpenAIResponse(result, requestedModel) {
       route: result.route,
       panel: result.panel.map(({ role, model }) => ({ role, model })),
       judge: { role: result.judge.role, model: result.judge.model },
-      synthesizer: { role: result.final.role, model: result.final.model }
+      synthesizer: { role: result.final.role, model: result.final.model },
+      trace: {
+        id: result.trace?.id,
+        phase_count: result.trace?.phases?.length ?? 0,
+        phases: (result.trace?.phases ?? []).map((phase) => ({
+          phase: phase.phase,
+          role: phase.role,
+          model: phase.model,
+          latency_ms: phase.latencyMs,
+          upstream_id: phase.upstreamId,
+          usage: phase.usage
+        }))
+      }
     }
   };
 }

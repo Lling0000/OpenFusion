@@ -16,6 +16,10 @@ test("runs a complete dry-run fusion pipeline", async () => {
   assert.ok(result.panel.length >= 2);
   assert.ok(result.panel.some((item) => item.role === "coder"));
   assert.match(result.final.content, /OpenFusion/);
+  assert.match(result.trace.id, /^of_/);
+  assert.equal(result.trace.phases.length, result.panel.length + 2);
+  assert.ok(result.trace.phases.some((phase) => phase.phase === "judge" && phase.role === defaultConfig.fusion.judgeRole));
+  assert.ok(result.trace.phases.every((phase) => typeof phase.latencyMs === "number"));
 });
 
 test("preserves multi-message transcript for routing and panel prompts", async () => {

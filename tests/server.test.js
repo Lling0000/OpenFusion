@@ -36,6 +36,8 @@ test("serves OpenAI-compatible models and chat completions", async () => {
     assert.equal(completion.choices[0].message.role, "assistant");
     assert.match(completion.choices[0].message.content, /OpenFusion/);
     assert.ok(completion.openfusion.panel.length >= 2);
+    assert.match(completion.openfusion.trace.id, /^of_/);
+    assert.equal(completion.openfusion.trace.phase_count, completion.openfusion.panel.length + 2);
     assert.equal(typeof completion.usage.total_tokens, "number");
   } finally {
     await new Promise((resolve) => server.close(resolve));

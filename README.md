@@ -100,6 +100,7 @@ This is especially useful when your Codex or editor setup already talks to an AP
 - Works with OpenRouter or any OpenAI-compatible API relay.
 - Dry-run mode for local testing without API keys.
 - JSON trace showing selected model roles and orchestration metadata.
+- Eval receipts for routing and orchestration checks: `openfusion eval --dry-run`.
 - Configurable role-to-model mapping.
 
 ## CLI
@@ -110,6 +111,7 @@ Installed or `npx` usage:
 openfusion init
 openfusion models
 openfusion doctor
+openfusion eval --dry-run
 openfusion chat --dry-run "Compare two architectures for a Codex API relay" --json
 openfusion serve --dry-run --port 8787
 ```
@@ -120,6 +122,7 @@ From a git checkout, replace `openfusion` with `node src/cli.js`:
 node src/cli.js init
 node src/cli.js models
 node src/cli.js doctor
+node src/cli.js eval --dry-run
 node src/cli.js chat --dry-run "Compare two architectures for a Codex API relay" --json
 node src/cli.js serve --dry-run --port 8787
 ```
@@ -155,6 +158,14 @@ Print a Codex-specific local adapter guide:
 
 ```bash
 openfusion adapter codex
+```
+
+Generate a dry-run eval receipt for routing/orchestration evidence:
+
+```bash
+openfusion eval --dry-run
+openfusion eval --dry-run --json
+openfusion receipt --dry-run "Review this Codex relay patch"
 ```
 
 ## Use With Codex Or An API Relay
@@ -282,7 +293,7 @@ OpenFusion does not claim to reproduce OpenRouter's private routing logic. It is
 
 OpenFusion is an early, working prototype for local multi-model orchestration.
 
-It is useful today for experimenting with role-based routing, dry-run traces, and OpenAI-compatible relay integration. It is not yet a production gateway: token-by-token streaming, provider-specific quirks, budget controls, eval receipts, and fusion-aware tool orchestration are still on the roadmap. Basic tool-call passthrough already exists so coding-agent tool turns stay on one upstream model.
+It is useful today for experimenting with role-based routing, dry-run traces, eval receipts, and OpenAI-compatible relay integration. It is not yet a production gateway: token-by-token streaming, provider-specific quirks, budget controls, answer-quality grading, and fusion-aware tool orchestration are still on the roadmap. Basic tool-call passthrough already exists so coding-agent tool turns stay on one upstream model.
 
 If you adopt it, keep tests, code review, and domain-specific validation in the loop. Fusion improves coverage of perspectives; it does not guarantee correctness.
 
@@ -291,7 +302,7 @@ If you adopt it, keep tests, code review, and domain-specific validation in the 
 - Token-by-token streaming from the local server.
 - Better prompt classification with examples and custom rules.
 - Budget-aware routing by cost, latency, and context window.
-- Eval receipts comparing single-model vs fusion answers.
+- Real-provider eval receipts comparing single-model vs fusion answers with task-specific grading.
 - Adapter presets for Codex, OpenCode, Continue, Cline, Aider, and LiteLLM.
 - Deeper compatibility doctor checks for provider quirks: tool calls, usage chunks, and headers.
 - Fusion-aware tool orchestration after the single-model passthrough path is stable.
@@ -307,7 +318,7 @@ OpenFusion is intentionally small, so focused contributions are welcome.
 - Add sanitized provider compatibility reports under `docs/providers/`.
 - Add token-by-token streaming support for `/v1/chat/completions`.
 - Improve tool-call passthrough and add tool-call round-trip fixtures.
-- Add eval receipts comparing single-model and fused answers.
+- Add real-provider eval receipts comparing single-model and fused answers.
 - Add a trace viewer for panel answers, judge notes, and final synthesis.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development commands and pull request guidelines.

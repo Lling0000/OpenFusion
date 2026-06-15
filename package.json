@@ -28,6 +28,7 @@
     "test": "node --test",
     "doctor": "node src/cli.js doctor",
     "smoke": "node src/cli.js --dry-run \"Debug this flaky React test and propose a patch\" --json",
+    "eval": "node src/cli.js eval --dry-run",
     "check": "node scripts/check-release.js",
     "check:providers": "node scripts/validate-provider-reports.js",
     "check:examples": "node scripts/validate-examples.js",

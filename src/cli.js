@@ -11,6 +11,7 @@ import { listModels } from "./models.js";
 import { renderDoctorMarkdown } from "./report.js";
 import { loadCompatTargets, renderCompatibilityMatrixMarkdown, runCompatibilityMatrix } from "./compat.js";
 import { buildAdapterGuide, listAdapters, renderAdapterGuide } from "./adapters.js";
+import { buildFusionReceipt, renderEvalMarkdown, runEvalSuite } from "./evals.js";
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -110,6 +111,34 @@ export async function main(args) {
     return 0;
   }
 
+  if (args.command === "eval") {
+    const config = await loadConfig(args.config);
+    const client = args.dryRun ? new MockChatClient() : createUpstreamClient(config);
+    const receipt = await runEvalSuite({ config, client });
+
+    if (args.json) {
+      console.log(JSON.stringify(receipt, null, 2));
+    } else {
+      console.log(renderEvalMarkdown(receipt));
+    }
+
+    return receipt.summary.failed === 0 ? 0 : 1;
+  }
+
+  if (args.command === "receipt") {
+    const config = await loadConfig(args.config);
+    const client = args.dryRun ? new MockChatClient() : createUpstreamClient(config);
+    const fusion = await runFusion({ question: args.question, config, client });
+    const receipt = buildFusionReceipt({
+      fusion,
+      mode: args.dryRun ? "dry-run" : "real",
+      id: "cli-prompt"
+    });
+
+    console.log(JSON.stringify(receipt, null, 2));
+    return receipt.verdict.hasMultiplePanelRoles && receipt.verdict.hasJudgeNotes && receipt.verdict.hasSynthesis ? 0 : 1;
+  }
+
   if (args.server) {
     const { startServer } = await import("./server.js");
     const server = await startServer({ configPath: args.config, dryRun: args.dryRun, port: args.port });
@@ -153,7 +182,7 @@ export function parseArgs(argv) {
     targets: []
   };
   const questionParts = [];
-  const commands = new Set(["init", "models", "doctor", "compat", "adapter", "serve", "chat"]);
+  const commands = new Set(["init", "models", "doctor", "compat", "adapter", "eval", "receipt", "serve", "chat"]);
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -223,6 +252,8 @@ Usage:
   openfusion compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" [--json]
   openfusion compat --compat-config examples/compat.config.example.json
   openfusion adapter [codex] [--json] [--port 8787] [--config openfusion.config.json] [--command-name openfusion]
+  openfusion eval --dry-run [--json] [--format markdown]
+  openfusion receipt --dry-run "your question"
   openfusion serve [--dry-run] [--port 8787]
   openfusion chat [--dry-run] [--json] "your question"
   openfusion [--dry-run] [--json] [--config openfusion.config.json] "your question"
@@ -235,6 +266,8 @@ Examples:
   node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1 --format markdown
   node src/cli.js compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion"
   node src/cli.js adapter codex
+  node src/cli.js eval --dry-run
+  node src/cli.js receipt --dry-run "Debug this failing API test"
   node src/cli.js models
   node src/cli.js --dry-run "Review this API design for security and tests"
   node src/cli.js --server --dry-run --port 8787

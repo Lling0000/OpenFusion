@@ -14,6 +14,9 @@ import { probeEndpoint } from "../src/probe.js";
 import { renderDoctorMarkdown } from "../src/report.js";
 import { loadCompatTargets, renderCompatibilityMatrixMarkdown, runCompatibilityMatrix } from "../src/compat.js";
 import { buildAdapterGuide, listAdapters, renderAdapterGuide } from "../src/adapters.js";
+import { buildFusionReceipt, renderEvalMarkdown, runEvalSuite } from "../src/evals.js";
+import { MockChatClient } from "../src/mockClient.js";
+import { runFusion } from "../src/fusion.js";
 
 test("parses explicit chat and serve commands", () => {
   const chat = parseArgs(["chat", "--dry-run", "--json", "Fix", "this", "test"]);
@@ -41,6 +44,16 @@ test("parses explicit chat and serve commands", () => {
   assert.equal(adapter.port, 9999);
   assert.equal(adapter.json, true);
   assert.equal(adapter.commandName, "node src/cli.js");
+
+  const evalArgs = parseArgs(["eval", "--dry-run", "--json"]);
+  assert.equal(evalArgs.command, "eval");
+  assert.equal(evalArgs.dryRun, true);
+  assert.equal(evalArgs.json, true);
+
+  const receipt = parseArgs(["receipt", "--dry-run", "Review", "this", "patch"]);
+  assert.equal(receipt.command, "receipt");
+  assert.equal(receipt.dryRun, true);
+  assert.equal(receipt.question, "Review this patch");
 });
 
 test("lists virtual and role models", () => {
@@ -174,6 +187,46 @@ test("rejects unknown adapters", () => {
     () => buildAdapterGuide(defaultConfig, { adapter: "unknown" }),
     /Unknown adapter/
   );
+});
+
+test("runs and renders eval receipts", async () => {
+  const receipt = await runEvalSuite({
+    config: defaultConfig,
+    client: new MockChatClient()
+  });
+  const markdown = renderEvalMarkdown(receipt);
+
+  assert.equal(receipt.object, "openfusion.eval_receipt");
+  assert.equal(receipt.schema, "openfusion.eval_receipt.v1");
+  assert.equal(receipt.summary.failed, 0);
+  assert.ok(receipt.results.some((item) => item.id === "coding-review" && item.selectedRoles.includes("coder")));
+  assert.ok(receipt.results.every((item) => item.trace.phaseCount >= 4));
+  assert.ok(receipt.results.every((item) => item.evidence.panel[0].contentSha256.length === 64));
+  assert.match(markdown, /# OpenFusion Eval Receipt/);
+  assert.match(markdown, /\| `coding-review` \| PASS \|/);
+  assert.match(markdown, /does not prove answer quality/);
+});
+
+test("builds a single fusion receipt", async () => {
+  const fusion = await runFusion({
+    question: "Review this patch for security and tests",
+    config: defaultConfig,
+    client: new MockChatClient()
+  });
+  const receipt = buildFusionReceipt({
+    fusion,
+    mode: "dry-run",
+    id: "test"
+  });
+
+  assert.equal(receipt.object, "openfusion.fusion_receipt");
+  assert.equal(receipt.schema, "openfusion.fusion_receipt.v1");
+  assert.equal(receipt.verdict.hasMultiplePanelRoles, true);
+  assert.equal(receipt.verdict.hasJudgeNotes, true);
+  assert.equal(receipt.verdict.hasSynthesis, true);
+  assert.equal(receipt.verdict.hasPhaseTrace, true);
+  assert.equal(receipt.promptSha256.length, 64);
+  assert.ok(receipt.panel[0].contentExcerpt);
 });
 
 test("cli serve keeps a foreground server alive", async () => {

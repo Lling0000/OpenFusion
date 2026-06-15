@@ -18,6 +18,7 @@ Useful commands:
 npm test
 npm run smoke
 npm run doctor
+npm run eval
 npm run check:providers
 npm run check:examples
 npm run check:package

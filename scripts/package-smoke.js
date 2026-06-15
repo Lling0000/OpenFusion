@@ -38,6 +38,15 @@ try {
     throw new Error("Packaged openfusion dry-run did not return a multi-role route.");
   }
 
+  const receipt = run(binPath("openfusion"), ["receipt", "--dry-run", "Review this packaged CLI route"], {
+    cwd: installDir,
+    capture: true
+  });
+  const receiptJson = JSON.parse(receipt.stdout);
+  if (receiptJson.schema !== "openfusion.fusion_receipt.v1" || !receiptJson.verdict?.hasPhaseTrace) {
+    throw new Error("Packaged openfusion receipt command did not return a valid phase trace receipt.");
+  }
+
   const adapter = run(binPath("openfusion"), ["adapter", "codex", "--json"], {
     cwd: installDir,
     capture: true
