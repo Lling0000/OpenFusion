@@ -7,6 +7,8 @@ OPENFUSION_PORT="${OPENFUSION_PORT:-8787}"
 OPENFUSION_BASE_URL="${OPENFUSION_BASE_URL:-http://127.0.0.1:${OPENFUSION_PORT}/v1}"
 OPENFUSION_MODEL="${OPENFUSION_MODEL:-openfusion/fusion}"
 OPENFUSION_BASELINE_ROLE="${OPENFUSION_BASELINE_ROLE:-fast}"
+OPENFUSION_GRADER_ROLE="${OPENFUSION_GRADER_ROLE:-verifier}"
+OPENFUSION_COMPARE_GRADE="${OPENFUSION_COMPARE_GRADE:-1}"
 OPENFUSION_UPSTREAM_KEY_ENV="${OPENFUSION_UPSTREAM_KEY_ENV:-OPENROUTER_API_KEY}"
 OPENFUSION_LOCAL_KEY="${OPENFUSION_LOCAL_KEY:-openfusion-local-placeholder}"
 
@@ -30,12 +32,16 @@ echo "OpenFusion real OpenRouter verification"
 echo "Config: $OPENFUSION_CONFIG"
 echo "Local URL: $OPENFUSION_BASE_URL"
 echo "Baseline role: $OPENFUSION_BASELINE_ROLE"
+echo "Grader role: $OPENFUSION_GRADER_ROLE"
 echo
 echo "This script makes real upstream calls through your configured OpenRouter role models."
 echo
 
 sh -c "$OPENFUSION_BIN doctor --real --config '$OPENFUSION_CONFIG'"
 sh -c "$OPENFUSION_BIN compare --config '$OPENFUSION_CONFIG' --baseline-role '$OPENFUSION_BASELINE_ROLE'"
+if [ "$OPENFUSION_COMPARE_GRADE" = "1" ]; then
+  sh -c "$OPENFUSION_BIN compare --config '$OPENFUSION_CONFIG' --baseline-role '$OPENFUSION_BASELINE_ROLE' --grade --grader-role '$OPENFUSION_GRADER_ROLE'"
+fi
 sh -c "$OPENFUSION_BIN adapter codex --config '$OPENFUSION_CONFIG' --port '$OPENFUSION_PORT'"
 
 server_pid=""

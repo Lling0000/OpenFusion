@@ -17,6 +17,13 @@ const matrixChecks = [
   "probe.chat.stream",
   "probe.tool.roundtrip"
 ];
+const qualityChecks = [
+  "# OpenFusion Quality Comparison Receipt",
+  "Fusion wins: **",
+  "Baseline wins: **",
+  "Ties: **",
+  "| Case | Winner | Baseline | Fusion Panel | Grader |"
+];
 const failures = [];
 
 for (const entry of readdirSync(dir)) {
@@ -32,14 +39,22 @@ for (const entry of readdirSync(dir)) {
     }
   }
 
-  for (const check of matrixChecks) {
-    if (!text.includes(check)) {
-      failures.push(`${path}: missing ${check}`);
+  if (text.includes("# OpenFusion Quality Comparison Receipt")) {
+    for (const check of qualityChecks) {
+      if (!text.includes(check)) {
+        failures.push(`${path}: missing ${check}`);
+      }
     }
-  }
+  } else {
+    for (const check of matrixChecks) {
+      if (!text.includes(check)) {
+        failures.push(`${path}: missing ${check}`);
+      }
+    }
 
-  if (!text.includes("Overall: **")) {
-    failures.push(`${path}: missing Overall status`);
+    if (!text.includes("Overall: **")) {
+      failures.push(`${path}: missing Overall status`);
+    }
   }
 }
 

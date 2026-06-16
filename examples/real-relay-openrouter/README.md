@@ -31,6 +31,7 @@ Generate a real baseline-vs-fusion receipt against OpenRouter:
 
 ```bash
 openfusion compare --config openfusion.config.json --baseline-role fast
+openfusion compare --config openfusion.config.json --baseline-role fast --grade --grader-role verifier
 ```
 
 If this fails, first check that each role model in `openfusion.config.json` is available to your OpenRouter account. You can temporarily switch a role to a model you know works, then rerun `doctor --real`.
@@ -43,7 +44,7 @@ OPENFUSION_CONFIG="examples/real-relay-openrouter/openfusion.config.example.json
 examples/real-relay-openrouter/verify.sh
 ```
 
-The script runs `doctor --real`, `compare`, prints the Codex adapter snippet, starts a local OpenFusion server, probes `http://127.0.0.1:8787/v1`, and then shuts the server down.
+The script runs `doctor --real`, `compare`, `compare --grade`, prints the Codex adapter snippet, starts a local OpenFusion server, probes `http://127.0.0.1:8787/v1`, and then shuts the server down.
 
 ## 3. Start The Local Gateway
 
@@ -108,6 +109,14 @@ openfusion compat \
 ```
 
 Copy the output into a Markdown file using the template in [../../docs/providers/README.md](../../docs/providers/README.md). Do not include API keys, private relay URLs, or private model aliases.
+
+For task-quality evidence, also save the Markdown output of:
+
+```bash
+openfusion compare --config openfusion.config.json --baseline-role fast --grade --grader-role verifier
+```
+
+Keep that report separate from the compatibility matrix. The matrix proves protocol compatibility; the graded comparison receipt is model-judged evidence about answer quality on the built-in prompts.
 
 ## Notes
 

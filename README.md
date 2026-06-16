@@ -58,6 +58,8 @@ Overall: **PASS** (3/3)
 
 That receipt proves the same prompts were exercised through one baseline role and the multi-stage fusion route. In dry-run mode it proves orchestration, not answer quality; run the same command without `--dry-run` after configuring a real relay to collect real provider evidence.
 
+When you want explicit task-quality evidence instead of orchestration-only evidence, add `--grade` to `compare`. That runs a grader role over the baseline answer and fused answer for the same prompts and emits a separate `Quality Comparison Receipt`.
+
 From a git checkout:
 
 ```bash
@@ -371,11 +373,13 @@ OpenRouter documents Fusion as `openrouter/fusion`, a model slug that performs m
 
 OpenFusion does not claim to reproduce OpenRouter's private routing logic. It is a transparent local pattern you can inspect, test, and adapt.
 
+The official OpenRouter docs currently describe Fusion as a router that exposes a model slug, can be invoked through server-tool style Fusion integrations, runs a panel plus judge flow, and returns a final answer. See [docs/openrouter-fusion-notes.md](docs/openrouter-fusion-notes.md) for the local mapping and source links.
+
 ## Project Status
 
 OpenFusion is an early, working prototype for local multi-model orchestration.
 
-It is useful today for experimenting with role-based routing, dry-run traces, eval receipts, basic upstream call budgets, and OpenAI-compatible relay integration. It is not yet a production gateway: token-by-token streaming, provider-specific quirks, cost-aware routing, answer-quality grading, and fusion-aware tool orchestration are still on the roadmap. Basic tool-call passthrough already exists so coding-agent tool turns stay on one upstream model.
+It is useful today for experimenting with role-based routing, dry-run traces, eval receipts, graded comparison receipts, basic upstream call budgets, and OpenAI-compatible relay integration. It is not yet a production gateway: token-by-token streaming, provider-specific quirks, cost-aware routing, and fusion-aware tool orchestration are still on the roadmap. Basic tool-call passthrough already exists so coding-agent tool turns stay on one upstream model.
 
 If you adopt it, keep tests, code review, and domain-specific validation in the loop. Fusion improves coverage of perspectives; it does not guarantee correctness.
 
