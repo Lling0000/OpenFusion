@@ -1,7 +1,7 @@
-const adapters = new Set(["codex"]);
+const adapters = ["codex", "aider"];
 
 export function listAdapters() {
-  return Array.from(adapters);
+  return [...adapters];
 }
 
 export function buildAdapterGuide(config, {
@@ -11,7 +11,7 @@ export function buildAdapterGuide(config, {
   configPath = "openfusion.config.json",
   commandName = "openfusion"
 } = {}) {
-  if (!adapters.has(adapter)) {
+  if (!adapters.includes(adapter)) {
     throw new Error(`Unknown adapter "${adapter}". Available adapters: ${listAdapters().join(", ")}`);
   }
 
@@ -19,6 +19,7 @@ export function buildAdapterGuide(config, {
   const localApiKey = "openfusion-local-placeholder";
   const localApiKeyEnv = "OPENFUSION_API_KEY";
   const model = "openfusion/fusion";
+  const aiderModel = `openai/${model}`;
   const codexConfigToml = `model = "${model}"
 model_provider = "openfusion"
 
@@ -26,6 +27,9 @@ model_provider = "openfusion"
 name = "OpenFusion local"
 base_url = "${localBaseURL}"
 env_key = "${localApiKeyEnv}"`;
+  const aiderConfigYml = `model: ${aiderModel}
+openai-api-base: ${localBaseURL}
+openai-api-key: ${localApiKey}`;
 
   return {
     adapter,
@@ -33,11 +37,20 @@ env_key = "${localApiKeyEnv}"`;
       baseURL: localBaseURL,
       apiKey: localApiKey,
       apiKeyEnv: localApiKeyEnv,
-      model
+      model,
+      aiderModel
     },
     codex: {
       configPath: "~/.codex/config.toml",
       configToml: codexConfigToml
+    },
+    aider: {
+      configPath: "~/.aider.conf.yml",
+      configYml: aiderConfigYml,
+      envScript: `export AIDER_OPENAI_API_BASE="${localBaseURL}"
+export AIDER_OPENAI_API_KEY="${localApiKey}"
+aider --model ${aiderModel}`,
+      launchCommand: `aider --model ${aiderModel}`
     },
     upstream: {
       baseURL: config.upstream.baseURL,
@@ -54,7 +67,7 @@ env_key = "${localApiKeyEnv}"`;
       probeLocal: `${commandName} doctor --probe-url ${localBaseURL} --probe-model ${model}`
     },
     notes: [
-      "Use the local base URL in Codex or any OpenAI-compatible client.",
+      "Use the local base URL in the client or any OpenAI-compatible tool.",
       "Keep your real relay API key in the upstream environment variable, not in Codex client config.",
       "If you are running from a git checkout, replace openfusion with node src/cli.js.",
       "Use dry-run mode first to verify routing without sending prompts upstream.",
@@ -64,6 +77,14 @@ env_key = "${localApiKeyEnv}"`;
 }
 
 export function renderAdapterGuide(guide) {
+  if (guide.adapter === "aider") {
+    return renderAiderGuide(guide);
+  }
+
+  return renderCodexGuide(guide);
+}
+
+function renderCodexGuide(guide) {
   return `# OpenFusion ${titleCase(guide.adapter)} Adapter
 
 Use OpenFusion as the local OpenAI-compatible gateway, then point ${titleCase(guide.adapter)} at the local URL.
@@ -137,6 +158,79 @@ ${guide.commands.doctorReal}
 ## Notes
 
 ${guide.notes.map((note) => `- ${note}`).join("\n")}
+`;
+}
+
+function renderAiderGuide(guide) {
+  return `# OpenFusion Aider Adapter
+
+Use OpenFusion as the local OpenAI-compatible gateway, then point Aider at the local URL.
+
+## 1. Create Or Edit OpenFusion Config
+
+\`\`\`bash
+${guide.commands.init}
+\`\`\`
+
+Set your upstream relay in \`openfusion.config.json\`:
+
+\`\`\`json
+{
+  "upstream": {
+    "baseURL": "${guide.upstream.baseURL}",
+    "apiKeyEnv": "${guide.upstream.apiKeyEnv}"
+  }
+}
+\`\`\`
+
+## 2. Start OpenFusion
+
+Dry-run, no upstream calls:
+
+\`\`\`bash
+${guide.commands.serveDryRun}
+\`\`\`
+
+Real relay mode:
+
+\`\`\`bash
+${guide.commands.serveReal}
+\`\`\`
+
+## 3. Configure Aider
+
+Option A: add this to \`${guide.aider.configPath}\`:
+
+\`\`\`yaml
+${guide.aider.configYml}
+\`\`\`
+
+Option B: use environment variables and pass the model on the command line:
+
+\`\`\`bash
+${guide.aider.envScript}
+\`\`\`
+
+The real upstream key stays with OpenFusion. Aider only needs the local placeholder key and the local OpenFusion base URL.
+
+## 4. Verify
+
+\`\`\`bash
+${guide.commands.doctorDryRun}
+${guide.commands.probeLocal}
+\`\`\`
+
+For a real upstream relay:
+
+\`\`\`bash
+${guide.commands.doctorReal}
+\`\`\`
+
+## Notes
+
+${guide.notes.map((note) => `- ${note}`).join("\n")}
+- Aider uses the OpenAI-compatible provider path, so the model name is \`${guide.local.aiderModel}\`.
+- If you use a config file, Aider can read the local base URL and placeholder key without extra CLI flags.
 `;
 }
 

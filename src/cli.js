@@ -108,7 +108,8 @@ export async function main(args) {
         console.log(JSON.stringify({ adapters: names }, null, 2));
       } else {
         console.log(`Available adapters: ${names.join(", ")}`);
-        console.log("Example: node src/cli.js adapter codex --port 8787");
+        console.log("Examples: node src/cli.js adapter codex --port 8787");
+        console.log("          node src/cli.js adapter aider --port 8787");
       }
       return 0;
     }
@@ -335,7 +336,7 @@ Usage:
   openfusion doctor [--real] [--probe-url http://127.0.0.1:8787/v1] [--probe-timeout-ms 30000] [--json] [--format markdown]
   openfusion compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" [--timeout-ms 30000] [--json]
   openfusion compat --compat-config examples/compat.config.example.json
-  openfusion adapter [codex] [--json] [--port 8787] [--config openfusion.config.json] [--command-name openfusion]
+  openfusion adapter [codex|aider] [--json] [--port 8787] [--config openfusion.config.json] [--command-name openfusion]
   openfusion eval --dry-run [--json] [--format markdown]
   openfusion compare --dry-run [--json] [--baseline-role fast]
   openfusion receipt --dry-run "your question"
@@ -352,6 +353,7 @@ Examples:
   node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1 --format markdown
   node src/cli.js compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" --timeout-ms 30000
   node src/cli.js adapter codex
+  node src/cli.js adapter aider
   node src/cli.js eval --dry-run
   node src/cli.js compare --dry-run --baseline-role fast
   node src/cli.js receipt --dry-run "Debug this failing API test"

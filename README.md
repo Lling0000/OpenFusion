@@ -27,6 +27,7 @@ npx github:Lling0000/OpenFusion doctor
 npx github:Lling0000/OpenFusion --dry-run "Review this patch for security risks and missing tests" --json
 npx github:Lling0000/OpenFusion compare --dry-run
 npx github:Lling0000/OpenFusion adapter codex
+npx github:Lling0000/OpenFusion adapter aider
 ```
 
 After the first npm release, the same flow becomes:
@@ -34,6 +35,7 @@ After the first npm release, the same flow becomes:
 ```bash
 npx openfusion@latest doctor
 npx openfusion@latest adapter codex
+npx openfusion@latest adapter aider
 ```
 
 Dry-run mode does not send prompts upstream. It uses a mock client so you can inspect routing and orchestration locally.
@@ -116,7 +118,7 @@ This is especially useful when your Codex or editor setup already talks to an AP
 - Model listing endpoint: `GET /v1/models`.
 - Debug route endpoint: `POST /debug/route`.
 - CLI commands: `init`, `models`, `route`, `doctor`, `compat`, `adapter`, `eval`, `compare`, `receipt`, `serve`, and `chat`.
-- Codex adapter guide: `adapter codex` prints local connection settings and verification commands.
+- Adapter guides: `adapter codex` and `adapter aider` print local connection settings and verification commands.
 - Transparent `route -> panel -> judge -> synthesize` pipeline.
 - Works with OpenRouter or any OpenAI-compatible API relay.
 - Dry-run mode for local testing without API keys.
@@ -185,10 +187,11 @@ openfusion compat \
 
 If a relay is slow to start streaming or complete tool-call turns, raise `--probe-timeout-ms` or `--timeout-ms` instead of assuming the compatibility surface is broken.
 
-Print a Codex-specific local adapter guide:
+Print a local adapter guide:
 
 ```bash
 openfusion adapter codex
+openfusion adapter aider
 ```
 
 Generate a dry-run eval receipt for routing/orchestration evidence. The receipt includes a Routing Diversity section that shows whether different prompts selected different role/model panels:
@@ -389,7 +392,7 @@ If you adopt it, keep tests, code review, and domain-specific validation in the 
 
 OpenFusion is intentionally small, so focused contributions are welcome.
 
-- Add adapter presets for Codex, Aider, OpenCode, Continue, Cline, and LiteLLM.
+- Add more adapter presets for OpenCode, Continue, Cline, and LiteLLM.
 - Add provider compatibility tests for OpenRouter and other OpenAI-compatible relays.
 - Add sanitized provider compatibility reports under `docs/providers/`.
 - Add token-by-token streaming support for `/v1/chat/completions`.

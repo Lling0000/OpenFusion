@@ -53,6 +53,12 @@ test("parses explicit chat and serve commands", () => {
   assert.equal(adapter.json, true);
   assert.equal(adapter.commandName, "node src/cli.js");
 
+  const aiderAdapter = parseArgs(["adapter", "aider", "--port", "7777", "--json"]);
+  assert.equal(aiderAdapter.command, "adapter");
+  assert.equal(aiderAdapter.adapterName, "aider");
+  assert.equal(aiderAdapter.port, 7777);
+  assert.equal(aiderAdapter.json, true);
+
   const evalArgs = parseArgs(["eval", "--dry-run", "--json"]);
   assert.equal(evalArgs.command, "eval");
   assert.equal(evalArgs.dryRun, true);
@@ -245,7 +251,7 @@ test("compatibility matrix requires at least one target", async () => {
 });
 
 test("builds and renders a Codex adapter guide", () => {
-  assert.deepEqual(listAdapters(), ["codex"]);
+  assert.deepEqual(listAdapters(), ["codex", "aider"]);
 
   const guide = buildAdapterGuide(defaultConfig, {
     adapter: "codex",
@@ -265,6 +271,30 @@ test("builds and renders a Codex adapter guide", () => {
   assert.match(markdown, /# OpenFusion Codex Adapter/);
   assert.match(markdown, /~\/\.codex\/config\.toml/);
   assert.match(markdown, /base_url = http:\/\/127\.0\.0\.1:9999\/v1/);
+  assert.match(markdown, /Tool-call requests use single-model passthrough/);
+});
+
+test("builds and renders an Aider adapter guide", () => {
+  const guide = buildAdapterGuide(defaultConfig, {
+    adapter: "aider",
+    port: 9999,
+    configPath: "examples/api-relay.config.example.json",
+    commandName: "openfusion"
+  });
+  const markdown = renderAdapterGuide(guide);
+
+  assert.equal(guide.local.baseURL, "http://127.0.0.1:9999/v1");
+  assert.equal(guide.local.model, "openfusion/fusion");
+  assert.equal(guide.local.aiderModel, "openai/openfusion/fusion");
+  assert.equal(guide.aider.configPath, "~/.aider.conf.yml");
+  assert.match(guide.aider.configYml, /model: openai\/openfusion\/fusion/);
+  assert.match(guide.aider.configYml, /openai-api-base: http:\/\/127\.0\.0\.1:9999\/v1/);
+  assert.match(guide.aider.envScript, /AIDER_OPENAI_API_BASE/);
+  assert.match(guide.aider.launchCommand, /aider --model openai\/openfusion\/fusion/);
+  assert.match(markdown, /# OpenFusion Aider Adapter/);
+  assert.match(markdown, /~\/\.aider\.conf\.yml/);
+  assert.match(markdown, /AIDER_OPENAI_API_BASE/);
+  assert.match(markdown, /openai\/openfusion\/fusion/);
   assert.match(markdown, /Tool-call requests use single-model passthrough/);
 });
 
