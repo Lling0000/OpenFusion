@@ -66,7 +66,8 @@ export async function main(args) {
       config,
       real: args.real,
       probeURL: args.probeUrl,
-      probeModel: args.probeModel
+      probeModel: args.probeModel,
+      probeTimeoutMs: args.probeTimeoutMs
     });
     if (args.json) {
       console.log(JSON.stringify(result, null, 2));
@@ -86,7 +87,10 @@ export async function main(args) {
       configPath: args.compatConfig,
       targetSpecs: args.targets
     });
-    const matrix = await runCompatibilityMatrix({ targets });
+    const matrix = await runCompatibilityMatrix({
+      targets,
+      timeoutMs: args.timeoutMs
+    });
 
     if (args.json) {
       console.log(JSON.stringify(matrix, null, 2));
@@ -233,10 +237,12 @@ export function parseArgs(argv) {
     else if (arg === "--port") parsed.port = Number(argv[++index]);
     else if (arg === "--probe-url") parsed.probeUrl = argv[++index];
     else if (arg === "--probe-model") parsed.probeModel = argv[++index];
+    else if (arg === "--probe-timeout-ms") parsed.probeTimeoutMs = Number(argv[++index]);
     else if (arg === "--format") parsed.format = argv[++index];
     else if (arg === "--target") parsed.targets.push(argv[++index]);
     else if (arg === "--compat-config") parsed.compatConfig = argv[++index];
     else if (arg === "--command-name") parsed.commandName = argv[++index];
+    else if (arg === "--timeout-ms") parsed.timeoutMs = Number(argv[++index]);
     else if (arg === "--baseline-role") parsed.baselineRole = argv[++index];
     else if (parsed.command === "adapter" && !parsed.adapterName) parsed.adapterName = arg;
     else questionParts.push(arg);
@@ -326,8 +332,8 @@ Usage:
   openfusion init [--output openfusion.config.json] [--force]
   openfusion models [--json] [--config openfusion.config.json]
   openfusion route [--json] [--config openfusion.config.json] "your question"
-  openfusion doctor [--real] [--probe-url http://127.0.0.1:8787/v1] [--json] [--format markdown]
-  openfusion compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" [--json]
+  openfusion doctor [--real] [--probe-url http://127.0.0.1:8787/v1] [--probe-timeout-ms 30000] [--json] [--format markdown]
+  openfusion compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" [--timeout-ms 30000] [--json]
   openfusion compat --compat-config examples/compat.config.example.json
   openfusion adapter [codex] [--json] [--port 8787] [--config openfusion.config.json] [--command-name openfusion]
   openfusion eval --dry-run [--json] [--format markdown]
@@ -342,9 +348,9 @@ Examples:
   node src/cli.js init
   node src/cli.js doctor
   node src/cli.js route --json "Review this API design for security and tests"
-  node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1
+  node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1 --probe-timeout-ms 30000
   node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1 --format markdown
-  node src/cli.js compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion"
+  node src/cli.js compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" --timeout-ms 30000
   node src/cli.js adapter codex
   node src/cli.js eval --dry-run
   node src/cli.js compare --dry-run --baseline-role fast

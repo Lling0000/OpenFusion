@@ -45,6 +45,7 @@ Probe it from another terminal:
 
 ```bash
 node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1
+node src/cli.js doctor --probe-url http://127.0.0.1:8787/v1 --probe-timeout-ms 30000
 ```
 
 The probe covers `/models`, regular chat completions, SSE-style streaming, and a tool-call round-trip.
@@ -59,6 +60,7 @@ Generate the provider matrix:
 
 ```bash
 node src/cli.js compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion"
+node src/cli.js compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" --timeout-ms 30000
 ```
 
 Test a tool-call passthrough request:

@@ -16,7 +16,8 @@ Start OpenFusion locally or point at your relay, then run:
 ```bash
 node src/cli.js compat \
   --target "openrouter|https://openrouter.ai/api/v1|openrouter/fusion|OPENROUTER_API_KEY" \
-  --target "your-relay|https://your-relay.example.com/v1|your-default-model|YOUR_RELAY_API_KEY"
+  --target "your-relay|https://your-relay.example.com/v1|your-default-model|YOUR_RELAY_API_KEY" \
+  --timeout-ms 30000
 ```
 
 Or use a config file:
@@ -31,6 +32,8 @@ node src/cli.js compat --compat-config examples/compat.config.example.json
 - `probe.chat`: non-streaming `POST /chat/completions` returns an assistant message.
 - `probe.chat.stream`: `stream: true` returns SSE chunks and `[DONE]`.
 - `probe.tool.roundtrip`: a tool-call request returns `tool_calls`, and a follow-up `role: "tool"` message completes successfully.
+
+If a relay is slow, pass a larger `--timeout-ms` so the matrix does not fail purely because a probe was aborted early.
 
 ## Contributing A Report
 

@@ -35,14 +35,16 @@ test("parses explicit chat and serve commands", () => {
   assert.equal(serve.server, true);
   assert.equal(serve.port, 9999);
 
-  const doctor = parseArgs(["doctor", "--probe-url", "http://127.0.0.1:8787/v1", "--format", "markdown"]);
+  const doctor = parseArgs(["doctor", "--probe-url", "http://127.0.0.1:8787/v1", "--probe-timeout-ms", "30000", "--format", "markdown"]);
   assert.equal(doctor.command, "doctor");
   assert.equal(doctor.probeUrl, "http://127.0.0.1:8787/v1");
+  assert.equal(doctor.probeTimeoutMs, 30000);
   assert.equal(doctor.format, "markdown");
 
-  const compat = parseArgs(["compat", "--target", "local|http://127.0.0.1:8787/v1|openfusion/fusion"]);
+  const compat = parseArgs(["compat", "--target", "local|http://127.0.0.1:8787/v1|openfusion/fusion", "--timeout-ms", "45000"]);
   assert.equal(compat.command, "compat");
   assert.deepEqual(compat.targets, ["local|http://127.0.0.1:8787/v1|openfusion/fusion"]);
+  assert.equal(compat.timeoutMs, 45000);
 
   const adapter = parseArgs(["adapter", "codex", "--port", "9999", "--json", "--command-name", "node src/cli.js"]);
   assert.equal(adapter.command, "adapter");

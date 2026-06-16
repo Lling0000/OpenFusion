@@ -4,7 +4,7 @@ import { runFusion } from "./fusion.js";
 import { probeEndpoint } from "./probe.js";
 import { createHash } from "node:crypto";
 
-export async function runDoctor({ config, real = false, probeURL, probeModel = "openfusion/fusion" } = {}) {
+export async function runDoctor({ config, real = false, probeURL, probeModel = "openfusion/fusion", probeTimeoutMs } = {}) {
   const checks = [];
   let fusionSummary = null;
 
@@ -49,7 +49,8 @@ export async function runDoctor({ config, real = false, probeURL, probeModel = "
       const probe = await probeEndpoint({
         baseURL: probeURL,
         model: probeModel,
-        apiKey
+        apiKey,
+        timeoutMs: probeTimeoutMs
       });
       for (const item of probe.checks) {
         checks.push(item);

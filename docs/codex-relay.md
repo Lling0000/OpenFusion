@@ -169,7 +169,8 @@ Endpoint probe checks OpenAI-compatible HTTP behavior:
 YOUR_RELAY_API_KEY="..." openfusion doctor \
   --config openfusion.config.json \
   --probe-url https://your-relay.example.com/v1 \
-  --probe-model your-default-model
+  --probe-model your-default-model \
+  --probe-timeout-ms 30000
 ```
 
 Generate a Markdown report you can paste into issues or docs:
@@ -193,8 +194,11 @@ Or pass targets inline:
 ```bash
 openfusion compat \
   --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" \
-  --target "your-relay|https://your-relay.example.com/v1|your-default-model|YOUR_RELAY_API_KEY"
+  --target "your-relay|https://your-relay.example.com/v1|your-default-model|YOUR_RELAY_API_KEY" \
+  --timeout-ms 30000
 ```
+
+If a relay is slow to begin streaming or complete tool-call follow-ups, increase these timeout values before treating a compatibility check as a hard failure.
 
 The probe checks:
 

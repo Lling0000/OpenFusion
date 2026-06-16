@@ -163,6 +163,7 @@ Use `--probe-url` to verify an OpenAI-compatible endpoint, including chat, basic
 
 ```bash
 openfusion doctor --probe-url http://127.0.0.1:8787/v1
+openfusion doctor --probe-url http://127.0.0.1:8787/v1 --probe-timeout-ms 30000
 ```
 
 Generate a Markdown compatibility report:
@@ -178,8 +179,11 @@ Compare multiple providers or relays:
 ```bash
 openfusion compat \
   --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" \
-  --target "openrouter|https://openrouter.ai/api/v1|openrouter/fusion|OPENROUTER_API_KEY"
+  --target "openrouter|https://openrouter.ai/api/v1|openrouter/fusion|OPENROUTER_API_KEY" \
+  --timeout-ms 30000
 ```
+
+If a relay is slow to start streaming or complete tool-call turns, raise `--probe-timeout-ms` or `--timeout-ms` instead of assuming the compatibility surface is broken.
 
 Print a Codex-specific local adapter guide:
 
