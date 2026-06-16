@@ -43,6 +43,22 @@ export class MockChatClient {
       };
     }
 
+    if (metadata?.phase === "grading") {
+      return {
+        model,
+        content: [
+          "## Winner",
+          "fusion",
+          "## Score",
+          "fusion 8/10, baseline 6/10.",
+          "## Rationale",
+          "Fusion combines specialist implementation, verification, and synthesis details into a more actionable answer.",
+          "## Risks",
+          "This is a dry-run grader response and does not represent a real-provider quality evaluation."
+        ].join("\n")
+      };
+    }
+
     if (metadata?.phase === "synthesis") {
       return {
         model,

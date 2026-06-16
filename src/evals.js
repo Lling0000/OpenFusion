@@ -166,6 +166,122 @@ export async function runComparisonSuite({ config, client, cases = defaultEvalCa
   };
 }
 
+export async function runQualityComparisonSuite({
+  config,
+  client,
+  cases = defaultEvalCases,
+  baselineRole = "fast",
+  graderRole = "verifier"
+} = {}) {
+  if (!config.roles[baselineRole]) {
+    throw new Error(`Unknown baseline role: ${baselineRole}`);
+  }
+  if (!config.roles[graderRole]) {
+    throw new Error(`Unknown grader role: ${graderRole}`);
+  }
+
+  const startedAt = new Date().toISOString();
+  const baselineConfig = config.roles[baselineRole];
+  const graderConfig = config.roles[graderRole];
+  const results = [];
+
+  for (const item of cases) {
+    const baseline = await client.complete({
+      phase: "baseline",
+      role: baselineRole,
+      model: baselineConfig.model,
+      messages: [{ role: "user", content: item.prompt }],
+      metadata: { phase: "baseline", role: baselineRole }
+    });
+    const fusion = await runFusion({
+      question: item.prompt,
+      config,
+      client
+    });
+    const grading = await client.complete({
+      phase: "grading",
+      role: graderRole,
+      model: graderConfig.model,
+      messages: qualityJudgePrompt({
+        question: item.prompt,
+        baselineRole,
+        baselineModel: baseline.model ?? baselineConfig.model,
+        baselineContent: baseline.content,
+        fusion
+      }),
+      metadata: { phase: "grading", role: graderRole }
+    });
+    const grade = parseQualityGrade(grading.content);
+
+    results.push({
+      id: item.id,
+      prompt: item.prompt,
+      promptSha256: sha256(item.prompt),
+      expectedRoles: item.expectedRoles,
+      baseline: {
+        role: baselineRole,
+        model: baseline.model ?? baselineConfig.model,
+        contentSha256: sha256(baseline.content),
+        contentExcerpt: excerpt(baseline.content),
+        upstreamId: baseline.raw?.id ?? null,
+        usage: baseline.raw?.usage ?? null
+      },
+      fusion: {
+        selectedRoles: fusion.route.selectedRoles,
+        panel: fusion.panel.map(({ role, model }) => ({ role, model })),
+        judge: {
+          role: fusion.judge.role,
+          model: fusion.judge.model,
+          contentSha256: sha256(fusion.judge.content),
+          contentExcerpt: excerpt(fusion.judge.content)
+        },
+        synthesizer: {
+          role: fusion.final.role,
+          model: fusion.final.model,
+          contentSha256: sha256(fusion.final.content),
+          contentExcerpt: excerpt(fusion.final.content)
+        },
+        trace: traceSummary(fusion.trace)
+      },
+      grading: {
+        role: graderRole,
+        model: grading.model ?? graderConfig.model,
+        raw: grading.content,
+        contentSha256: sha256(grading.content),
+        contentExcerpt: excerpt(grading.content),
+        upstreamId: grading.raw?.id ?? null,
+        usage: grading.raw?.usage ?? null,
+        ...grade
+      }
+    });
+  }
+
+  const fusionWins = results.filter((item) => item.grading.winner === "fusion").length;
+  const baselineWins = results.filter((item) => item.grading.winner === "baseline").length;
+  const ties = results.filter((item) => item.grading.winner === "tie").length;
+  const parsed = results.filter((item) => item.grading.parsed).length;
+
+  return {
+    object: "openfusion.quality_comparison_receipt",
+    schema: "openfusion.quality_comparison_receipt.v1",
+    startedAt,
+    mode: client.constructor?.name === "MockChatClient" ? "dry-run" : "real",
+    baselineRole,
+    baselineModel: baselineConfig.model,
+    graderRole,
+    graderModel: graderConfig.model,
+    summary: {
+      total: results.length,
+      parsed,
+      fusionWins,
+      baselineWins,
+      ties,
+      gradingCoverage: parsed === results.length
+    },
+    results
+  };
+}
+
 export function renderEvalMarkdown(receipt) {
   const rows = [
     "| Case | Status | Expected Roles | Selected Roles | Trace | Judge | Synthesizer |",
@@ -231,6 +347,36 @@ export function renderComparisonMarkdown(receipt) {
   ].join("\n");
 }
 
+export function renderQualityComparisonMarkdown(receipt) {
+  const rows = [
+    "| Case | Winner | Baseline | Fusion Panel | Grader |",
+    "| --- | --- | --- | --- | --- |",
+    ...receipt.results.map((item) => [
+      `| \`${escapePipes(item.id)}\``,
+      item.grading.winner.toUpperCase(),
+      `\`${escapePipes(item.baseline.role)}:${escapePipes(item.baseline.model)}\``,
+      item.fusion.selectedRoles.map((role) => `\`${escapePipes(role)}\``).join(" + "),
+      `\`${escapePipes(item.grading.role)}:${escapePipes(item.grading.model)}\` |`
+    ].join(" | "))
+  ];
+
+  return [
+    "# OpenFusion Quality Comparison Receipt",
+    "",
+    `Mode: \`${receipt.mode}\``,
+    `Started: \`${receipt.startedAt}\``,
+    `Baseline: \`${receipt.baselineRole}:${receipt.baselineModel}\``,
+    `Grader: \`${receipt.graderRole}:${receipt.graderModel}\``,
+    `Fusion wins: **${receipt.summary.fusionWins}**`,
+    `Baseline wins: **${receipt.summary.baselineWins}**`,
+    `Ties: **${receipt.summary.ties}**`,
+    "",
+    rows.join("\n"),
+    "",
+    "This receipt adds model-graded quality evidence on top of orchestration evidence. Treat the grader as another model judgment, not as ground truth."
+  ].join("\n");
+}
+
 export function buildFusionReceipt({ fusion, mode = "dry-run", id = "single-prompt" }) {
   return {
     object: "openfusion.fusion_receipt",
@@ -274,6 +420,61 @@ function comparisonOk(item) {
     item.verdict.hasJudgeNotes &&
     item.verdict.hasFusionSynthesis &&
     item.verdict.hasDistinctFusionPath;
+}
+
+function qualityJudgePrompt({ question, baselineRole, baselineModel, baselineContent, fusion }) {
+  return [
+    {
+      role: "system",
+      content: [
+        "You are the OpenFusion quality judge.",
+        "Compare two candidate answers for the same task: one baseline answer and one fused answer.",
+        "Judge helpfulness, correctness, risk awareness, and actionability.",
+        "Return strict Markdown with these headings only: Winner, Score, Rationale, Risks.",
+        "Winner must be exactly one of: fusion, baseline, tie.",
+        "Score must be one short line like: fusion 8/10, baseline 6/10."
+      ].join("\n")
+    },
+    {
+      role: "user",
+      content: [
+        `## Original question\n${question}`,
+        "",
+        `## Baseline (${baselineRole}:${baselineModel})`,
+        baselineContent,
+        "",
+        "## Fusion route",
+        fusion.route.rationale,
+        "",
+        "## Fusion panel",
+        ...fusion.panel.map((response) => `### ${response.role} (${response.model})\n${response.content}`),
+        "",
+        `## Fusion judge (${fusion.judge.role}:${fusion.judge.model})`,
+        fusion.judge.content,
+        "",
+        `## Fusion final (${fusion.final.role}:${fusion.final.model})`,
+        fusion.final.content
+      ].join("\n")
+    }
+  ];
+}
+
+function parseQualityGrade(content) {
+  const text = String(content ?? "");
+  const winnerMatch = text.match(/^##\s*Winner\s*\n+([^\n]+)/im);
+  const scoreMatch = text.match(/^##\s*Score\s*\n+([^\n]+)/im);
+  const rationaleMatch = text.match(/^##\s*Rationale\s*\n+([\s\S]*?)(?:\n##\s*Risks|\s*$)/im);
+  const risksMatch = text.match(/^##\s*Risks\s*\n+([\s\S]*?)\s*$/im);
+  const normalizedWinner = winnerMatch?.[1]?.trim().toLowerCase();
+  const winner = ["fusion", "baseline", "tie"].includes(normalizedWinner) ? normalizedWinner : "unknown";
+
+  return {
+    parsed: Boolean(winnerMatch && scoreMatch),
+    winner,
+    scoreLine: scoreMatch?.[1]?.trim() ?? null,
+    rationale: rationaleMatch?.[1]?.trim() ?? null,
+    risks: risksMatch?.[1]?.trim() ?? null
+  };
 }
 
 function fusionEvidence(fusion) {

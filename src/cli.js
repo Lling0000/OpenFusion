@@ -13,7 +13,15 @@ import { fusionBudget } from "./fusion.js";
 import { routeQuestion } from "./router.js";
 import { loadCompatTargets, renderCompatibilityMatrixMarkdown, runCompatibilityMatrix } from "./compat.js";
 import { buildAdapterGuide, listAdapters, renderAdapterGuide } from "./adapters.js";
-import { buildFusionReceipt, renderComparisonMarkdown, renderEvalMarkdown, runComparisonSuite, runEvalSuite } from "./evals.js";
+import {
+  buildFusionReceipt,
+  renderComparisonMarkdown,
+  renderEvalMarkdown,
+  renderQualityComparisonMarkdown,
+  runComparisonSuite,
+  runEvalSuite,
+  runQualityComparisonSuite
+} from "./evals.js";
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -148,16 +156,27 @@ export async function main(args) {
   if (args.command === "compare") {
     const config = await loadConfig(args.config);
     const client = args.dryRun ? new MockChatClient() : createUpstreamClient(config);
-    const receipt = await runComparisonSuite({
-      config,
-      client,
-      baselineRole: args.baselineRole ?? "fast"
-    });
+    const receipt = args.grade
+      ? await runQualityComparisonSuite({
+        config,
+        client,
+        baselineRole: args.baselineRole ?? "fast",
+        graderRole: args.graderRole ?? "verifier"
+      })
+      : await runComparisonSuite({
+        config,
+        client,
+        baselineRole: args.baselineRole ?? "fast"
+      });
 
     if (args.json) {
       console.log(JSON.stringify(receipt, null, 2));
     } else {
-      console.log(renderComparisonMarkdown(receipt));
+      console.log(args.grade ? renderQualityComparisonMarkdown(receipt) : renderComparisonMarkdown(receipt));
+    }
+
+    if (args.grade) {
+      return receipt.summary.gradingCoverage ? 0 : 1;
     }
 
     return receipt.summary.failed === 0 ? 0 : 1;
@@ -245,6 +264,8 @@ export function parseArgs(argv) {
     else if (arg === "--command-name") parsed.commandName = argv[++index];
     else if (arg === "--timeout-ms") parsed.timeoutMs = Number(argv[++index]);
     else if (arg === "--baseline-role") parsed.baselineRole = argv[++index];
+    else if (arg === "--grader-role") parsed.graderRole = argv[++index];
+    else if (arg === "--grade") parsed.grade = true;
     else if (parsed.command === "adapter" && !parsed.adapterName) parsed.adapterName = arg;
     else questionParts.push(arg);
   }
@@ -338,7 +359,7 @@ Usage:
   openfusion compat --compat-config examples/compat.config.example.json
   openfusion adapter [codex|aider] [--json] [--port 8787] [--config openfusion.config.json] [--command-name openfusion]
   openfusion eval --dry-run [--json] [--format markdown]
-  openfusion compare --dry-run [--json] [--baseline-role fast]
+  openfusion compare --dry-run [--json] [--baseline-role fast] [--grade] [--grader-role verifier]
   openfusion receipt --dry-run "your question"
   openfusion serve [--dry-run] [--port 8787]
   openfusion chat [--dry-run] [--json] "your question"
@@ -356,6 +377,7 @@ Examples:
   node src/cli.js adapter aider
   node src/cli.js eval --dry-run
   node src/cli.js compare --dry-run --baseline-role fast
+  node src/cli.js compare --dry-run --grade --grader-role verifier
   node src/cli.js receipt --dry-run "Debug this failing API test"
   node src/cli.js models
   node src/cli.js --dry-run "Review this API design for security and tests"

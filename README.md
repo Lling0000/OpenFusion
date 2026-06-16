@@ -208,9 +208,13 @@ Generate a single-model baseline vs fusion receipt for the built-in eval prompts
 openfusion compare --dry-run
 openfusion compare --dry-run --json
 openfusion compare --dry-run --baseline-role coder
+openfusion compare --dry-run --grade
+openfusion compare --dry-run --grade --grader-role verifier
 ```
 
 Without `--dry-run`, `compare` calls your configured upstream relay once through the baseline role and once through the fusion pipeline for each case. Treat the result as reproducible orchestration evidence; use task-specific grading before claiming one answer is better.
+
+Add `--grade` when you want a second pass where one grader role compares the baseline answer with the fused answer and returns a structured winner/score/rationale/risks receipt. This is still model judgment rather than ground truth, but it gives you explicit quality evidence on top of the orchestration receipt.
 
 ## Use With Codex Or An API Relay
 

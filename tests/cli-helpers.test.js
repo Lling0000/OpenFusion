@@ -15,7 +15,15 @@ import { probeEndpoint } from "../src/probe.js";
 import { renderDoctorMarkdown } from "../src/report.js";
 import { loadCompatTargets, renderCompatibilityMatrixMarkdown, runCompatibilityMatrix } from "../src/compat.js";
 import { buildAdapterGuide, listAdapters, renderAdapterGuide } from "../src/adapters.js";
-import { buildFusionReceipt, renderComparisonMarkdown, renderEvalMarkdown, runComparisonSuite, runEvalSuite } from "../src/evals.js";
+import {
+  buildFusionReceipt,
+  renderComparisonMarkdown,
+  renderEvalMarkdown,
+  renderQualityComparisonMarkdown,
+  runComparisonSuite,
+  runEvalSuite,
+  runQualityComparisonSuite
+} from "../src/evals.js";
 import { MockChatClient } from "../src/mockClient.js";
 import { runFusion } from "../src/fusion.js";
 
@@ -69,6 +77,13 @@ test("parses explicit chat and serve commands", () => {
   assert.equal(compare.dryRun, true);
   assert.equal(compare.baselineRole, "coder");
   assert.equal(compare.json, true);
+
+  const gradedCompare = parseArgs(["compare", "--dry-run", "--grade", "--grader-role", "verifier", "--json"]);
+  assert.equal(gradedCompare.command, "compare");
+  assert.equal(gradedCompare.dryRun, true);
+  assert.equal(gradedCompare.grade, true);
+  assert.equal(gradedCompare.graderRole, "verifier");
+  assert.equal(gradedCompare.json, true);
 
   const receipt = parseArgs(["receipt", "--dry-run", "Review", "this", "patch"]);
   assert.equal(receipt.command, "receipt");
@@ -366,6 +381,43 @@ test("comparison receipts reject unknown baseline roles", async () => {
       baselineRole: "unknown"
     }),
     /Unknown baseline role/
+  );
+});
+
+test("runs and renders graded quality comparison receipts", async () => {
+  const receipt = await runQualityComparisonSuite({
+    config: defaultConfig,
+    client: new MockChatClient(),
+    baselineRole: "fast",
+    graderRole: "verifier"
+  });
+  const markdown = renderQualityComparisonMarkdown(receipt);
+
+  assert.equal(receipt.object, "openfusion.quality_comparison_receipt");
+  assert.equal(receipt.schema, "openfusion.quality_comparison_receipt.v1");
+  assert.equal(receipt.baselineRole, "fast");
+  assert.equal(receipt.graderRole, "verifier");
+  assert.equal(receipt.summary.total, receipt.results.length);
+  assert.equal(receipt.summary.parsed, receipt.results.length);
+  assert.equal(receipt.summary.gradingCoverage, true);
+  assert.ok(receipt.summary.fusionWins >= 1);
+  assert.ok(receipt.results.every((item) => item.grading.parsed));
+  assert.ok(receipt.results.every((item) => item.grading.winner === "fusion"));
+  assert.ok(receipt.results.every((item) => item.grading.scoreLine));
+  assert.match(markdown, /# OpenFusion Quality Comparison Receipt/);
+  assert.match(markdown, /Grader: `verifier:google\/gemini-2\.5-pro`/);
+  assert.match(markdown, /\| `coding-review` \| FUSION \| `fast:openai\/gpt-4\.1-mini` \|/);
+  assert.match(markdown, /model-graded quality evidence/);
+});
+
+test("graded comparison receipts reject unknown grader roles", async () => {
+  await assert.rejects(
+    () => runQualityComparisonSuite({
+      config: defaultConfig,
+      client: new MockChatClient(),
+      graderRole: "unknown"
+    }),
+    /Unknown grader role/
   );
 });
 
