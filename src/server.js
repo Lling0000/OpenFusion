@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { MockChatClient } from "./mockClient.js";
 import { OpenAICompatibleClient } from "./openaiClient.js";
-import { fusionBudget, runFusion } from "./fusion.js";
+import { fusionBudget, runFusion, runFusionStream } from "./fusion.js";
 import { routeQuestion } from "./router.js";
 import { listModels } from "./models.js";
 
@@ -54,29 +54,44 @@ export async function startServer({ configPath, dryRun = false, port = Number(pr
         validateChatRequest(body);
 
         if (hasToolFields(body)) {
-          const payload = await runToolPassthrough({ body, config, client });
           if (body.stream) {
-            return sendSseCompletion(response, payload);
+            return sendPassthroughStream(response, {
+              body,
+              requestedModel: body.model ?? "openfusion/coder",
+              mode: "tool-passthrough",
+              upstreamModel: resolveUpstreamModel(body.model ?? "openfusion/coder", config, { toolPassthrough: true }),
+              reason: "Tool calls bypass fusion so the client can continue the tool-call protocol with one upstream model.",
+              client
+            });
           }
+          const payload = await runToolPassthrough({ body, config, client });
 
           return sendJson(response, 200, payload);
         }
 
         if (isExplicitRoleModel(body.model, config)) {
-          const payload = await runRolePassthrough({ body, config, client });
           if (body.stream) {
-            return sendSseCompletion(response, payload);
+            return sendPassthroughStream(response, {
+              body,
+              requestedModel: body.model,
+              mode: "role-passthrough",
+              upstreamModel: resolveUpstreamModel(body.model, config),
+              reason: "Explicit OpenFusion role models use one configured upstream model instead of the fusion panel.",
+              client
+            });
           }
+          const payload = await runRolePassthrough({ body, config, client });
 
           return sendJson(response, 200, payload);
         }
 
+        if (body.stream) {
+          const fusion = await runFusionStream({ messages: body.messages, config, client });
+          return sendFusionStream(response, fusion, body.model ?? "openfusion/fusion");
+        }
+
         const result = await runFusion({ messages: body.messages, config, client });
         const payload = toOpenAIResponse(result, body.model ?? "openfusion/fusion");
-
-        if (body.stream) {
-          return sendSseCompletion(response, payload);
-        }
 
         return sendJson(response, 200, payload);
       }
@@ -389,6 +404,96 @@ function sendSseCompletion(response, payload) {
   response.write(`data: ${JSON.stringify(finalChunk)}\n\n`);
   response.write("data: [DONE]\n\n");
   response.end();
+}
+
+async function sendPassthroughStream(response, { body, requestedModel, upstreamModel, mode, reason, client }) {
+  response.writeHead(200, {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache, no-transform",
+    connection: "keep-alive"
+  });
+
+  for await (const item of client.streamChat({
+    ...pickPassthroughBody(body),
+    model: upstreamModel
+  })) {
+    const chunk = structuredClone(item.chunk);
+    chunk.model = requestedModel;
+    chunk.openfusion = {
+      mode,
+      requested_model: requestedModel,
+      upstream_model: upstreamModel,
+      reason
+    };
+    response.write(`data: ${JSON.stringify(chunk)}\n\n`);
+  }
+
+  response.write("data: [DONE]\n\n");
+  response.end();
+}
+
+async function sendFusionStream(response, fusion, requestedModel) {
+  response.writeHead(200, {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache, no-transform",
+    connection: "keep-alive"
+  });
+
+  let finalState = null;
+
+  for await (const item of fusion.stream()) {
+    finalState = item.state;
+    const chunk = structuredClone(item.chunk);
+    chunk.model = requestedModel;
+    chunk.openfusion = buildOpenFusionTrace(finalState);
+    response.write(`data: ${JSON.stringify(chunk)}\n\n`);
+  }
+
+  const finalChunk = {
+    id: `chatcmpl-openfusion-${Date.now()}`,
+    object: "chat.completion.chunk",
+    created: Math.floor(Date.now() / 1000),
+    model: requestedModel,
+    choices: [
+      {
+        index: 0,
+        delta: {},
+        finish_reason: "stop"
+      }
+    ],
+    usage: {
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_tokens: 0
+    },
+    openfusion: finalState ? buildOpenFusionTrace(finalState) : undefined
+  };
+
+  response.write(`data: ${JSON.stringify(finalChunk)}\n\n`);
+  response.write("data: [DONE]\n\n");
+  response.end();
+}
+
+function buildOpenFusionTrace(result) {
+  return {
+    route: result.route,
+    panel: result.panel.map(({ role, model }) => ({ role, model })),
+    judge: { role: result.judge.role, model: result.judge.model },
+    synthesizer: { role: result.final.role, model: result.final.model },
+    trace: {
+      id: result.trace?.id,
+      budget: result.trace?.budget,
+      phase_count: result.trace?.phases?.length ?? 0,
+      phases: (result.trace?.phases ?? []).map((phase) => ({
+        phase: phase.phase,
+        role: phase.role,
+        model: phase.model,
+        latency_ms: phase.latencyMs,
+        upstream_id: phase.upstreamId,
+        usage: phase.usage
+      }))
+    }
+  };
 }
 
 function setCorsHeaders(response) {

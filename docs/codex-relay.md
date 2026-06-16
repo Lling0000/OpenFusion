@@ -21,7 +21,7 @@ Your OpenAI-compatible relay / OpenRouter / LiteLLM / vLLM gateway
 | --- | --- |
 | Ordinary assistant answers | Routes to a role panel, judges disagreements, and synthesizes one answer. |
 | Tool-call turns | Uses single-model passthrough so Codex's tool protocol stays stable. |
-| `stream: true` | Returns SSE-compatible chunks after the response is ready; token-by-token streaming is not implemented yet. |
+| `stream: true` | Returns real SSE chunks. Role/tool passthrough streams directly from one upstream model, while fusion begins streaming once panel and judge phases finish and the synthesizer starts producing output. |
 
 ## 1. Prove The Local Gateway First
 
@@ -238,6 +238,8 @@ If your Codex installation already points at an API relay, replace that relay UR
 ## Compatibility Notes
 
 OpenFusion currently preserves the full chat `messages` transcript and supports normal JSON responses plus SSE-style `stream: true` responses.
+
+For `openfusion/fusion`, streaming is phase-aware rather than full fan-out multiplexing: panel and judge phases still complete first, then the final synthesizer answer streams incrementally to the client.
 
 Tool calls use a basic passthrough path. If a request includes `tools`, `tool_choice`, `parallel_tool_calls`, `role: "tool"`, or an assistant message with `tool_calls`, OpenFusion bypasses multi-model fusion and sends the request to one upstream model.
 

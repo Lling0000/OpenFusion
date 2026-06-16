@@ -23,4 +23,4 @@ Overall: **PASS**
 
 - This report uses OpenFusion's built-in dry-run mock client, so it does not prove a real upstream relay's quality.
 - It proves the local OpenFusion OpenAI-compatible facade supports the expected compatibility surface.
-- The dry-run server buffers Fusion output before emitting SSE-compatible chunks; it is not token-by-token streaming.
+- The dry-run server now emits multiple incremental SSE chunks. For fusion requests, panel and judge phases still finish first, then the final synthesizer answer streams incrementally.

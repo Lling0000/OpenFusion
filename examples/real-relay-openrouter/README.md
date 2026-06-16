@@ -121,7 +121,8 @@ Keep that report separate from the compatibility matrix. The matrix proves proto
 ## Notes
 
 - Real mode fans ordinary requests out to multiple upstream role models.
+- With `stream: true`, ordinary fusion requests begin streaming once the synthesis phase starts. Panel and judge phases still complete before the first streamed answer chunk.
 - Tool-call requests bypass fusion and go to one upstream model.
 - Keep `OPENROUTER_API_KEY` out of config files and committed logs.
-- OpenFusion's local streaming is SSE-compatible but buffered after the full fusion result is ready; it is not token-by-token yet.
+- OpenFusion's local streaming is SSE-compatible and now emits incremental synthesis chunks, but it does not multiplex panel-model tokens into the client stream.
 - `verify.sh` makes real upstream calls and may spend OpenRouter credits.

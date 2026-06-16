@@ -11,6 +11,7 @@ OpenFusion exposes one OpenAI-compatible endpoint and fans each request out to a
 Use it when you want Codex, OpenCode, Aider, editor agents, or custom scripts to talk to a single local gateway instead of hard-coding one upstream model for every task.
 
 - Local-first gateway: run it in front of OpenRouter or any OpenAI-compatible relay.
+- Real SSE streaming: passthrough requests stream directly, and fusion streams incrementally once synthesis begins.
 - Transparent fusion: inspect route scores, selected roles, judge, and synthesizer.
 - Coding-agent focused: debugging, review, architecture tradeoffs, tests, and docs.
 - Dry-run friendly: try routing and orchestration without an API key.
@@ -379,7 +380,7 @@ The official OpenRouter docs currently describe Fusion as a router that exposes 
 
 OpenFusion is an early, working prototype for local multi-model orchestration.
 
-It is useful today for experimenting with role-based routing, dry-run traces, eval receipts, graded comparison receipts, basic upstream call budgets, and OpenAI-compatible relay integration. It is not yet a production gateway: token-by-token streaming, provider-specific quirks, cost-aware routing, and fusion-aware tool orchestration are still on the roadmap. Basic tool-call passthrough already exists so coding-agent tool turns stay on one upstream model.
+It is useful today for experimenting with role-based routing, dry-run traces, eval receipts, graded comparison receipts, incremental synthesis streaming, basic upstream call budgets, and OpenAI-compatible relay integration. It is not yet a production gateway: full fan-out token multiplexing, provider-specific quirks, cost-aware routing, and fusion-aware tool orchestration are still on the roadmap. Basic tool-call passthrough already exists so coding-agent tool turns stay on one upstream model.
 
 If you adopt it, keep tests, code review, and domain-specific validation in the loop. Fusion improves coverage of perspectives; it does not guarantee correctness.
 

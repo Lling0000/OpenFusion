@@ -77,6 +77,121 @@ export async function runFusion({ question, messages, config, client }) {
   };
 }
 
+export async function runFusionStream({ question, messages, config, client }) {
+  const normalizedQuestion = question ?? transcriptFromMessages(messages);
+  const route = routeQuestion(normalizedQuestion, config);
+  const budget = fusionBudget(route, config);
+  enforceFusionBudget(budget);
+  const trace = {
+    id: createTraceId(),
+    startedAt: new Date().toISOString(),
+    budget,
+    phases: []
+  };
+
+  const panelResults = await Promise.all(route.selectedRoles.map(async (role) => {
+    const roleConfig = config.roles[role];
+    const { response, phase } = await timedComplete(client, {
+      phase: "panel",
+      role,
+      model: roleConfig.model,
+      messages: panelPrompt({ role, roleConfig, question: normalizedQuestion }),
+      metadata: { phase: "panel", role }
+    });
+
+    return {
+      response: {
+        role,
+        model: response.model,
+        content: response.content
+      },
+      phase
+    };
+  }));
+  const panelResponses = panelResults.map((result) => result.response);
+  trace.phases.push(...panelResults.map((result) => result.phase));
+
+  const judgeRole = config.fusion.judgeRole;
+  const judgeConfig = config.roles[judgeRole];
+  const { response: judgeResponse, phase: judgePhase } = await timedComplete(client, {
+    phase: "judge",
+    role: judgeRole,
+    model: judgeConfig.model,
+    messages: judgePrompt({ question: normalizedQuestion, panelResponses }),
+    metadata: { phase: "judge", role: judgeRole }
+  });
+  trace.phases.push(judgePhase);
+
+  const synthesizerRole = config.fusion.synthesizerRole;
+  const synthesizerConfig = config.roles[synthesizerRole];
+  const startedAt = new Date();
+  const startedMs = Date.now();
+  let finalAggregate = null;
+
+  const synthesisStream = client.streamChat({
+    phase: "synthesis",
+    role: synthesizerRole,
+    model: synthesizerConfig.model,
+    messages: synthesisPrompt({ question: normalizedQuestion, panelResponses, judgeResponse }),
+    metadata: { phase: "synthesis", role: synthesizerRole }
+  });
+
+  return {
+    question: normalizedQuestion,
+    route,
+    panel: panelResponses,
+    judge: {
+      role: judgeRole,
+      model: judgeResponse.model,
+      content: judgeResponse.content
+    },
+    trace,
+    async *stream() {
+      for await (const item of synthesisStream) {
+        finalAggregate = item.aggregate;
+        yield {
+          chunk: item.chunk,
+          state: buildFusionState({
+            question: normalizedQuestion,
+            route,
+            panelResponses,
+            judgeRole,
+            judgeResponse,
+            synthesizerRole,
+            finalResponse: finalAggregate,
+            trace
+          })
+        };
+      }
+
+      const completedAt = new Date();
+      trace.phases.push({
+        phase: "synthesis",
+        role: synthesizerRole,
+        model: finalAggregate?.model ?? synthesizerConfig.model,
+        startedAt: startedAt.toISOString(),
+        completedAt: completedAt.toISOString(),
+        latencyMs: Date.now() - startedMs,
+        upstreamId: finalAggregate?.id ?? null,
+        usage: finalAggregate?.usage ?? null
+      });
+      trace.completedAt = completedAt.toISOString();
+      trace.latencyMs = trace.phases.reduce((total, phase) => total + phase.latencyMs, 0);
+
+      return buildFusionState({
+        question: normalizedQuestion,
+        route,
+        panelResponses,
+        judgeRole,
+        judgeResponse,
+        synthesizerRole,
+        finalResponse: finalAggregate,
+        trace
+      });
+    }
+  };
+}
+
 export function fusionBudget(route, config) {
   const phases = [
     ...route.selectedRoles.map((role) => ({ phase: "panel", role })),
@@ -214,6 +329,34 @@ async function timedComplete(client, request) {
       upstreamId: response.raw?.id ?? null,
       usage: response.raw?.usage ?? null
     }
+  };
+}
+
+function buildFusionState({
+  question,
+  route,
+  panelResponses,
+  judgeRole,
+  judgeResponse,
+  synthesizerRole,
+  finalResponse,
+  trace
+}) {
+  return {
+    question,
+    route,
+    panel: panelResponses,
+    judge: {
+      role: judgeRole,
+      model: judgeResponse.model,
+      content: judgeResponse.content
+    },
+    final: {
+      role: synthesizerRole,
+      model: finalResponse?.model,
+      content: finalResponse?.choices?.[0]?.message?.content ?? finalResponse?.content ?? ""
+    },
+    trace
   };
 }
 

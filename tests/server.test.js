@@ -154,10 +154,15 @@ test("streams explicit role model passthrough responses as SSE chunks", async ()
 
     assert.equal(response.ok, true);
     assert.match(response.headers.get("content-type"), /text\/event-stream/);
-    const body = await response.text();
-    assert.match(body, /role-passthrough/);
-    assert.match(body, /openfusion\/writer/);
-    assert.match(body, /data: \[DONE\]/);
+    const events = parseSse(await response.text());
+    const contentChunks = events
+      .filter((event) => event !== "[DONE]")
+      .map((event) => event.choices?.[0]?.delta?.content)
+      .filter(Boolean);
+    assert.ok(contentChunks.length > 1);
+    assert.equal(events[0].openfusion.mode, "role-passthrough");
+    assert.equal(events[0].model, "openfusion/writer");
+    assert.equal(events.at(-1), "[DONE]");
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -180,9 +185,16 @@ test("returns SSE chunks for stream requests", async () => {
 
     assert.equal(response.ok, true);
     assert.match(response.headers.get("content-type"), /text\/event-stream/);
-    const body = await response.text();
-    assert.match(body, /chat\.completion\.chunk/);
-    assert.match(body, /data: \[DONE\]/);
+    const events = parseSse(await response.text());
+    const contentChunks = events
+      .filter((event) => event !== "[DONE]")
+      .map((event) => event.choices?.[0]?.delta?.content)
+      .filter(Boolean);
+    assert.ok(contentChunks.length > 1);
+    assert.equal(events[0].model, "openfusion/fusion");
+    assert.ok(events[0].openfusion.trace.phase_count >= 2);
+    assert.equal(events.at(-2).choices[0].finish_reason, "stop");
+    assert.equal(events.at(-1), "[DONE]");
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -301,9 +313,9 @@ test("streams tool passthrough responses as SSE chunks", async () => {
 
     assert.equal(response.ok, true);
     assert.match(response.headers.get("content-type"), /text\/event-stream/);
-    const body = await response.text();
-    assert.match(body, /tool-passthrough/);
-    assert.match(body, /data: \[DONE\]/);
+    const events = parseSse(await response.text());
+    assert.equal(events[0].openfusion.mode, "tool-passthrough");
+    assert.equal(events.at(-1), "[DONE]");
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -347,4 +359,14 @@ function pricedConfig() {
     maxUsd: 1
   };
   return config;
+}
+
+function parseSse(text) {
+  return text
+    .trim()
+    .split("\n\n")
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => block.replace(/^data:\s*/, ""))
+    .map((payload) => payload === "[DONE]" ? "[DONE]" : JSON.parse(payload));
 }

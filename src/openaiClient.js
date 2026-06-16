@@ -58,6 +58,52 @@ export class OpenAICompatibleClient {
       clearTimeout(timer);
     }
   }
+
+  async *streamChat(request) {
+    if (!this.apiKey) {
+      throw new Error("Missing upstream API key. Set the configured apiKeyEnv or use --dry-run.");
+    }
+
+    const { model, messages, ...options } = request;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    try {
+      const response = await fetch(`${this.baseURL}/chat/completions`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${this.apiKey}`,
+          ...(this.siteURL ? { "HTTP-Referer": this.siteURL } : {}),
+          ...(this.appName ? { "X-Title": this.appName } : {})
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: true,
+          ...pickChatOptions(options)
+        })
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`Upstream ${response.status}: ${body.slice(0, 500)}`);
+      }
+
+      if (!response.body) {
+        throw new Error("Upstream did not return a readable stream.");
+      }
+
+      let aggregate = null;
+      for await (const chunk of parseSse(response.body)) {
+        aggregate = mergeChunk(aggregate, chunk, model);
+        yield { chunk, aggregate };
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 }
 
 function pickChatOptions(options) {
@@ -86,4 +132,73 @@ function pickChatOptions(options) {
   }
 
   return picked;
+}
+
+async function *parseSse(body) {
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  for await (const chunk of body) {
+    buffer += decoder.decode(chunk, { stream: true });
+
+    while (buffer.includes("\n\n")) {
+      const boundary = buffer.indexOf("\n\n");
+      const rawEvent = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+
+      const dataLines = rawEvent
+        .split("\n")
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trim());
+
+      if (dataLines.length === 0) continue;
+
+      const data = dataLines.join("\n");
+      if (data === "[DONE]") break;
+
+      yield JSON.parse(data);
+    }
+  }
+}
+
+function mergeChunk(previous, chunk, requestedModel) {
+  const next = previous ?? {
+    id: chunk.id ?? `chatcmpl-openfusion-${Date.now()}`,
+    object: "chat.completion",
+    created: chunk.created ?? Math.floor(Date.now() / 1000),
+    model: chunk.model ?? requestedModel,
+    choices: [
+      {
+        index: 0,
+        finish_reason: null,
+        message: {
+          role: "assistant",
+          content: ""
+        }
+      }
+    ],
+    usage: null
+  };
+
+  const choice = chunk.choices?.[0];
+  const delta = choice?.delta ?? {};
+  const message = next.choices[0].message;
+
+  if (delta.role) {
+    message.role = delta.role;
+  }
+  if (typeof delta.content === "string") {
+    message.content = `${message.content ?? ""}${delta.content}`;
+  }
+  if (delta.tool_calls) {
+    message.tool_calls = delta.tool_calls;
+  }
+  if (choice?.finish_reason !== undefined) {
+    next.choices[0].finish_reason = choice.finish_reason;
+  }
+  if (chunk.usage) {
+    next.usage = chunk.usage;
+  }
+
+  return next;
 }

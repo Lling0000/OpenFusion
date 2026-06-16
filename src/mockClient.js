@@ -75,6 +75,58 @@ export class MockChatClient {
       content: `[${role}] ${mockSpecialistAnswer(role, last)}`
     };
   }
+
+  async *streamChat({ model, messages, metadata }) {
+    const response = await this.complete({ model, messages, metadata });
+    const content = response.content ?? "";
+    const words = content.split(/(\s+)/).filter(Boolean);
+    let aggregate = "";
+    const created = Math.floor(Date.now() / 1000);
+    const id = `chatcmpl-openfusion-mock-${created}`;
+
+    for (const piece of words) {
+      aggregate += piece;
+      yield {
+        chunk: {
+          id,
+          object: "chat.completion.chunk",
+          created,
+          model,
+          choices: [
+            {
+              index: 0,
+              delta: {
+                role: "assistant",
+                content: piece
+              },
+              finish_reason: null
+            }
+          ]
+        },
+        aggregate: {
+          id,
+          object: "chat.completion",
+          created,
+          model,
+          choices: [
+            {
+              index: 0,
+              finish_reason: null,
+              message: {
+                role: "assistant",
+                content: aggregate
+              }
+            }
+          ],
+          usage: {
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0
+          }
+        }
+      };
+    }
+  }
 }
 
 function mockChatMessage(request) {
