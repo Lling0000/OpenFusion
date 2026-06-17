@@ -18,7 +18,7 @@ export function buildAdapterGuide(config, {
   const localBaseURL = `http://${host}:${port}/v1`;
   const localApiKey = "openfusion-local-placeholder";
   const localApiKeyEnv = "OPENFUSION_API_KEY";
-  const model = "openfusion/fusion";
+  const model = adapter === "codex" ? "openfusion/auto" : "openfusion/fusion";
   const aiderModel = `openai/${model}`;
   const codexConfigToml = `model = "${model}"
 model_provider = "openfusion"
@@ -71,6 +71,7 @@ aider --model ${aiderModel}`,
       "Keep your real relay API key in the upstream environment variable, not in Codex client config.",
       "If you are running from a git checkout, replace openfusion with node src/cli.js.",
       "Use dry-run mode first to verify routing without sending prompts upstream.",
+      "In Codex, the clearest visible switch is the selected model name: openfusion/auto means Auto is on.",
       "Tool-call requests use single-model passthrough so coding-agent protocols remain stable."
     ]
   };
@@ -140,6 +141,14 @@ Generic OpenAI-compatible clients can use the same values directly:
 base_url = ${guide.local.baseURL}
 api_key = ${guide.local.apiKey}
 model = ${guide.local.model}
+\`\`\`
+
+If you want a more explicit local switch, use:
+
+\`\`\`bash
+openfusion codex status
+openfusion codex enable-auto
+openfusion codex enable-fusion
 \`\`\`
 
 ## 4. Verify

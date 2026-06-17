@@ -1,4 +1,6 @@
-model = "openfusion/fusion"
+# Recommended Codex-facing default. If Codex shows this in the model selector,
+# Auto is entering through OpenFusion.
+model = "openfusion/auto"
 model_provider = "openfusion"
 
 [model_providers.openfusion]

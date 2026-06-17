@@ -14,6 +14,16 @@ import { routeQuestion } from "./router.js";
 import { loadCompatTargets, renderCompatibilityMatrixMarkdown, runCompatibilityMatrix } from "./compat.js";
 import { buildAdapterGuide, listAdapters, renderAdapterGuide } from "./adapters.js";
 import {
+  buildCodexConfigSnippet,
+  buildLocalBaseURL,
+  enableCodexOpenFusion,
+  inspectCodexConfig,
+  renderCodexSnippet,
+  renderCodexStatus,
+  renderCodexSwitch,
+  targetModelForCodexAction
+} from "./codex.js";
+import {
   buildFusionReceipt,
   renderComparisonMarkdown,
   renderEvalMarkdown,
@@ -139,6 +149,47 @@ export async function main(args) {
     return 0;
   }
 
+  if (args.command === "codex") {
+    const action = args.codexAction ?? "status";
+    const baseURL = args.baseUrl ?? buildLocalBaseURL({ port: args.port });
+
+    if (action === "status") {
+      const status = await inspectCodexConfig({ configPath: args.codexConfig });
+      if (args.json) {
+        console.log(JSON.stringify(status, null, 2));
+      } else {
+        console.log(renderCodexStatus(status));
+      }
+      return 0;
+    }
+
+    if (action === "snippet") {
+      const snippet = buildCodexConfigSnippet({ model: args.model ?? "openfusion/auto", baseURL });
+      if (args.json) {
+        console.log(JSON.stringify({ object: "openfusion.codex_snippet", schema: "openfusion.codex_snippet.v1", configToml: snippet }, null, 2));
+      } else {
+        console.log(renderCodexSnippet(snippet));
+      }
+      return 0;
+    }
+
+    const targetModel = args.model ?? targetModelForCodexAction(action, args.role);
+    const result = await enableCodexOpenFusion({
+      configPath: args.codexConfig,
+      model: targetModel,
+      baseURL,
+      backup: !args.noBackup
+    });
+
+    if (args.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(renderCodexSwitch(result));
+    }
+
+    return 0;
+  }
+
   if (args.command === "eval") {
     const config = await loadConfig(args.config);
     const client = args.dryRun ? new MockChatClient() : createUpstreamClient(config);
@@ -239,7 +290,7 @@ export function parseArgs(argv) {
     targets: []
   };
   const questionParts = [];
-  const commands = new Set(["init", "models", "route", "doctor", "compat", "adapter", "eval", "compare", "receipt", "serve", "chat"]);
+  const commands = new Set(["init", "models", "route", "doctor", "compat", "adapter", "codex", "eval", "compare", "receipt", "serve", "chat"]);
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -261,12 +312,18 @@ export function parseArgs(argv) {
     else if (arg === "--format") parsed.format = argv[++index];
     else if (arg === "--target") parsed.targets.push(argv[++index]);
     else if (arg === "--compat-config") parsed.compatConfig = argv[++index];
+    else if (arg === "--codex-config") parsed.codexConfig = argv[++index];
+    else if (arg === "--base-url") parsed.baseUrl = argv[++index];
+    else if (arg === "--model") parsed.model = argv[++index];
+    else if (arg === "--no-backup") parsed.noBackup = true;
     else if (arg === "--command-name") parsed.commandName = argv[++index];
     else if (arg === "--timeout-ms") parsed.timeoutMs = Number(argv[++index]);
     else if (arg === "--baseline-role") parsed.baselineRole = argv[++index];
     else if (arg === "--grader-role") parsed.graderRole = argv[++index];
     else if (arg === "--grade") parsed.grade = true;
     else if (parsed.command === "adapter" && !parsed.adapterName) parsed.adapterName = arg;
+    else if (parsed.command === "codex" && !parsed.codexAction) parsed.codexAction = arg;
+    else if (parsed.command === "codex" && parsed.codexAction === "use-role" && !parsed.role) parsed.role = arg;
     else questionParts.push(arg);
   }
 
@@ -358,6 +415,7 @@ Usage:
   openfusion compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" [--timeout-ms 30000] [--json]
   openfusion compat --compat-config examples/compat.config.example.json
   openfusion adapter [codex|aider] [--json] [--port 8787] [--config openfusion.config.json] [--command-name openfusion]
+  openfusion codex [status|snippet|enable-auto|enable-fusion|use-role ROLE] [--codex-config ~/.codex/config.toml] [--base-url http://127.0.0.1:8787/v1] [--no-backup] [--json]
   openfusion eval --dry-run [--json] [--format markdown]
   openfusion compare --dry-run [--json] [--baseline-role fast] [--grade] [--grader-role verifier]
   openfusion receipt --dry-run "your question"
@@ -375,6 +433,8 @@ Examples:
   node src/cli.js compat --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" --timeout-ms 30000
   node src/cli.js adapter codex
   node src/cli.js adapter aider
+  node src/cli.js codex status
+  node src/cli.js codex enable-auto
   node src/cli.js eval --dry-run
   node src/cli.js compare --dry-run --baseline-role fast
   node src/cli.js compare --dry-run --grade --grader-role verifier

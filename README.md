@@ -83,7 +83,7 @@ Call it like a normal chat completions endpoint:
 curl http://localhost:8787/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "openfusion/fusion",
+    "model": "openfusion/auto",
     "messages": [
       {
         "role": "user",
@@ -115,12 +115,14 @@ One model is rarely best at everything. Coding, planning, verification, and writ
 
 This is especially useful when your Codex or editor setup already talks to an API relay. Instead of hard-coding one model for every task, OpenFusion can expose one local OpenAI-compatible endpoint and decide which upstream model roles should collaborate for each question.
 
+For Codex, the recommended entry point is `openfusion/auto` in the model selector. Codex does not currently expose a public plugin UI slot for pinning a third-party toggle to the bottom-right of the composer, so the closest native-feeling setup is to make `openfusion/auto` the model you pick when Auto is on.
+
 ## Features
 
 - OpenAI-compatible local endpoint: `POST /v1/chat/completions`.
 - Model listing endpoint: `GET /v1/models`.
 - Debug route endpoint: `POST /debug/route`.
-- CLI commands: `init`, `models`, `route`, `doctor`, `compat`, `adapter`, `eval`, `compare`, `receipt`, `serve`, and `chat`.
+- CLI commands: `init`, `models`, `route`, `doctor`, `compat`, `adapter`, `codex`, `eval`, `compare`, `receipt`, `serve`, and `chat`.
 - Adapter guides: `adapter codex` and `adapter aider` print local connection settings and verification commands.
 - Transparent `route -> panel -> judge -> synthesize` pipeline.
 - Works with OpenRouter or any OpenAI-compatible API relay.
@@ -142,6 +144,8 @@ openfusion eval --dry-run
 openfusion compare --dry-run
 openfusion chat --dry-run "Compare two architectures for a Codex API relay" --json
 openfusion serve --dry-run --port 8787
+openfusion codex status
+openfusion codex enable-auto
 ```
 
 From a git checkout, replace `openfusion` with `node src/cli.js`:
@@ -155,6 +159,8 @@ node src/cli.js eval --dry-run
 node src/cli.js compare --dry-run
 node src/cli.js chat --dry-run "Compare two architectures for a Codex API relay" --json
 node src/cli.js serve --dry-run --port 8787
+node src/cli.js codex status
+node src/cli.js codex enable-auto
 ```
 
 `route` previews the selected panel, judge, synthesizer, and upstream call budget without calling any model. `doctor` checks configuration, role mappings, judge/synthesizer settings, and the dry-run fusion pipeline. It also includes a compact Fusion Receipt Summary with the selected panel roles, judge, synthesizer, trace id, phase count, and latency. Pass `--real` after setting your upstream key to test a real relay.
@@ -195,6 +201,14 @@ Print a local adapter guide:
 ```bash
 openfusion adapter codex
 openfusion adapter aider
+```
+
+Inspect or switch the Codex-facing Auto state:
+
+```bash
+openfusion codex status
+openfusion codex enable-auto
+openfusion codex enable-fusion
 ```
 
 Generate a dry-run eval receipt for routing/orchestration evidence. The receipt includes a Routing Diversity section that shows whether different prompts selected different role/model panels:
@@ -281,7 +295,7 @@ Point Codex or another OpenAI-compatible client at:
 
 ```toml
 # ~/.codex/config.toml
-model = "openfusion/fusion"
+model = "openfusion/auto"
 model_provider = "openfusion"
 
 [model_providers.openfusion]
@@ -292,15 +306,19 @@ env_key = "OPENFUSION_API_KEY"
 
 Set `OPENFUSION_API_KEY` to any local placeholder value. Keep your real relay key in the environment variable used by OpenFusion, such as `YOUR_RELAY_API_KEY` or `OPENROUTER_API_KEY`.
 
+When Codex shows `openfusion/auto` in its model selector, that is the clearest sign that Auto is enabled. If Codex still shows a direct upstream model such as `gpt-5.5`, you are not routing through OpenFusion.
+
 Generic OpenAI-compatible clients can use:
 
 ```text
 base_url = http://127.0.0.1:8787/v1
 api_key = any-local-placeholder
-model = openfusion/fusion
+model = openfusion/auto
 ```
 
 OpenFusion will receive the local request, choose a role panel, call your upstream relay, and return a normal chat completion.
+
+`openfusion/fusion` remains available as the explicit manual model label if you want to select it yourself instead of using the default Auto-facing entry.
 
 See [docs/codex-relay.md](docs/codex-relay.md) for a more complete Codex/API relay setup guide, including `doctor --probe-url`.
 See [docs/providers](docs/providers) for compatibility report templates and community provider matrix guidance. Provider reports are validated by `npm run check`.
@@ -313,7 +331,7 @@ OpenFusion returns a normal chat completion response plus an `openfusion` trace:
 
 ```json
 {
-  "model": "openfusion/fusion",
+  "model": "openfusion/auto",
   "choices": [
     {
       "message": {

@@ -23,6 +23,12 @@ Your OpenAI-compatible relay / OpenRouter / LiteLLM / vLLM gateway
 | Tool-call turns | Uses single-model passthrough so Codex's tool protocol stays stable. |
 | `stream: true` | Returns real SSE chunks. Role/tool passthrough streams directly from one upstream model, while fusion begins streaming once panel and judge phases finish and the synthesizer starts producing output. |
 
+## Codex UX Note
+
+Codex does not currently expose a public plugin UI slot for pinning a third-party button or toggle to the bottom-right of the input box.
+
+The closest native-feeling setup is to expose `openfusion/auto` in the Codex model selector and make that the default in `~/.codex/config.toml`. When the selector shows `openfusion/auto`, Auto is on. Keep `openfusion/fusion` around as the explicit manual model label if you want to switch it yourself.
+
 ## 1. Prove The Local Gateway First
 
 Start a dry-run server with no upstream calls:
@@ -34,13 +40,14 @@ openfusion serve --dry-run --port 8787
 In another terminal, verify the local OpenAI-compatible surface:
 
 ```bash
-openfusion doctor --probe-url http://127.0.0.1:8787/v1 --probe-model openfusion/fusion
+openfusion doctor --probe-url http://127.0.0.1:8787/v1 --probe-model openfusion/auto
 ```
 
 You can also inspect the exact Codex settings:
 
 ```bash
 openfusion adapter codex
+openfusion codex status
 ```
 
 ## 2. Configure Codex
@@ -50,13 +57,21 @@ Codex reads user-level configuration from `~/.codex/config.toml`. Provider auth 
 Add this snippet:
 
 ```toml
-model = "openfusion/fusion"
+model = "openfusion/auto"
 model_provider = "openfusion"
 
 [model_providers.openfusion]
 name = "OpenFusion local"
 base_url = "http://127.0.0.1:8787/v1"
 env_key = "OPENFUSION_API_KEY"
+```
+
+This is the most visible Auto switch Codex exposes today: if the model selector shows `openfusion/auto`, Codex is entering through OpenFusion Auto.
+
+If you want OpenFusion to write the same settings for you instead of editing TOML by hand:
+
+```bash
+openfusion codex enable-auto
 ```
 
 Set a local placeholder key for Codex:
@@ -193,7 +208,7 @@ Or pass targets inline:
 
 ```bash
 openfusion compat \
-  --target "local|http://127.0.0.1:8787/v1|openfusion/fusion" \
+  --target "local|http://127.0.0.1:8787/v1|openfusion/auto" \
   --target "your-relay|https://your-relay.example.com/v1|your-default-model|YOUR_RELAY_API_KEY" \
   --timeout-ms 30000
 ```
@@ -222,7 +237,7 @@ Use these values in any client that supports an OpenAI-compatible base URL:
 ```text
 base_url = http://127.0.0.1:8787/v1
 api_key = any-local-placeholder
-model = openfusion/fusion
+model = openfusion/auto
 ```
 
 Or print the same values directly from the CLI:
@@ -234,6 +249,8 @@ openfusion adapter codex
 From a git checkout, use `node src/cli.js adapter codex`.
 
 If your Codex installation already points at an API relay, replace that relay URL with the local OpenFusion URL, and put the original relay URL in `openfusion.config.json`.
+
+If you want a manual, explicit model choice instead of the default Auto-facing entry, change only the model to `openfusion/fusion`.
 
 ## Compatibility Notes
 
@@ -247,7 +264,8 @@ This is intentional: coding agents often depend on a strict tool-call protocol, 
 
 Selection rules:
 
-- `model: "openfusion/fusion"` or `model: "openfusion/auto"` runs the route -> panel -> judge -> synthesis pipeline for normal assistant answers.
+- `model: "openfusion/auto"` is the recommended Codex-facing default. Today it runs the same route -> panel -> judge -> synthesis pipeline as `openfusion/fusion` for normal assistant answers, while giving you the clearest "Auto is on" label in the model selector.
+- `model: "openfusion/fusion"` keeps the explicit manual fusion label for normal assistant answers.
 - `model: "openfusion/<role>"` uses that role's configured upstream model directly for normal assistant answers.
 - Tool-call requests always use single-model passthrough. Explicit role models use that role; virtual fusion models use `fusion.toolRole`.
 - The default `fusion.toolRole` is `writer`; configure it to a model that your upstream relay has verified for tool/function calling.

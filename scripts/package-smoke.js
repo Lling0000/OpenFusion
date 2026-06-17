@@ -82,7 +82,7 @@ try {
   }
 
   const guide = JSON.parse(adapter.stdout);
-  if (guide.local?.model !== "openfusion/fusion") {
+  if (guide.local?.model !== "openfusion/auto") {
     throw new Error("Packaged CLI returned an unexpected Codex adapter model.");
   }
   if (!guide.codex?.configToml?.includes('model_provider = "openfusion"')) {
@@ -90,6 +90,31 @@ try {
   }
   if (!guide.commands?.serveDryRun?.startsWith("openfusion serve")) {
     throw new Error("Packaged Codex adapter guide should use the openfusion bin command.");
+  }
+
+  const codexSnippet = run(binPath("openfusion"), ["codex", "snippet", "--json"], {
+    cwd: installDir,
+    capture: true
+  });
+  const codexSnippetJson = JSON.parse(codexSnippet.stdout);
+  if (!codexSnippetJson.configToml?.includes('model = "openfusion/auto"')) {
+    throw new Error("Packaged codex snippet did not default to openfusion/auto.");
+  }
+
+  const codexSwitch = run(binPath("openfusion"), [
+    "codex",
+    "enable-auto",
+    "--codex-config",
+    "./codex.test.toml",
+    "--no-backup",
+    "--json"
+  ], {
+    cwd: installDir,
+    capture: true
+  });
+  const codexSwitchJson = JSON.parse(codexSwitch.stdout);
+  if (codexSwitchJson.targetModel !== "openfusion/auto" || !codexSwitchJson.status?.autoEnabled) {
+    throw new Error("Packaged codex enable-auto command did not enable the Auto switch.");
   }
 
   console.log(`Package smoke passed: ${artifact.filename}`);

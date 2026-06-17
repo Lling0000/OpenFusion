@@ -16,6 +16,13 @@ import { renderDoctorMarkdown } from "../src/report.js";
 import { loadCompatTargets, renderCompatibilityMatrixMarkdown, runCompatibilityMatrix } from "../src/compat.js";
 import { buildAdapterGuide, listAdapters, renderAdapterGuide } from "../src/adapters.js";
 import {
+  buildCodexConfigSnippet,
+  enableCodexOpenFusion,
+  inspectCodexConfigText,
+  targetModelForCodexAction,
+  updateCodexConfigText
+} from "../src/codex.js";
+import {
   buildFusionReceipt,
   renderComparisonMarkdown,
   renderEvalMarkdown,
@@ -66,6 +73,23 @@ test("parses explicit chat and serve commands", () => {
   assert.equal(aiderAdapter.adapterName, "aider");
   assert.equal(aiderAdapter.port, 7777);
   assert.equal(aiderAdapter.json, true);
+
+  const codexStatus = parseArgs(["codex", "status", "--codex-config", "/tmp/codex.toml", "--json"]);
+  assert.equal(codexStatus.command, "codex");
+  assert.equal(codexStatus.codexAction, "status");
+  assert.equal(codexStatus.codexConfig, "/tmp/codex.toml");
+  assert.equal(codexStatus.json, true);
+
+  const codexEnableAuto = parseArgs(["codex", "enable-auto", "--base-url", "http://127.0.0.1:9999/v1"]);
+  assert.equal(codexEnableAuto.command, "codex");
+  assert.equal(codexEnableAuto.codexAction, "enable-auto");
+  assert.equal(codexEnableAuto.baseUrl, "http://127.0.0.1:9999/v1");
+
+  const codexUseRole = parseArgs(["codex", "use-role", "coder", "--no-backup"]);
+  assert.equal(codexUseRole.command, "codex");
+  assert.equal(codexUseRole.codexAction, "use-role");
+  assert.equal(codexUseRole.role, "coder");
+  assert.equal(codexUseRole.noBackup, true);
 
   const evalArgs = parseArgs(["eval", "--dry-run", "--json"]);
   assert.equal(evalArgs.command, "eval");
@@ -277,14 +301,16 @@ test("builds and renders a Codex adapter guide", () => {
   const markdown = renderAdapterGuide(guide);
 
   assert.equal(guide.local.baseURL, "http://127.0.0.1:9999/v1");
-  assert.equal(guide.local.model, "openfusion/fusion");
+  assert.equal(guide.local.model, "openfusion/auto");
   assert.equal(guide.local.apiKeyEnv, "OPENFUSION_API_KEY");
   assert.equal(guide.upstream.apiKeyEnv, defaultConfig.upstream.apiKeyEnv);
   assert.match(guide.codex.configToml, /model_provider = "openfusion"/);
+  assert.match(guide.codex.configToml, /model = "openfusion\/auto"/);
   assert.match(guide.codex.configToml, /env_key = "OPENFUSION_API_KEY"/);
   assert.match(guide.commands.serveDryRun, /^openfusion serve/);
   assert.match(markdown, /# OpenFusion Codex Adapter/);
   assert.match(markdown, /~\/\.codex\/config\.toml/);
+  assert.match(markdown, /openfusion codex enable-auto/);
   assert.match(markdown, /base_url = http:\/\/127\.0\.0\.1:9999\/v1/);
   assert.match(markdown, /Tool-call requests use single-model passthrough/);
 });
@@ -311,6 +337,115 @@ test("builds and renders an Aider adapter guide", () => {
   assert.match(markdown, /AIDER_OPENAI_API_BASE/);
   assert.match(markdown, /openai\/openfusion\/fusion/);
   assert.match(markdown, /Tool-call requests use single-model passthrough/);
+});
+
+test("builds and updates Codex config snippets", () => {
+  const snippet = buildCodexConfigSnippet({
+    model: "openfusion/auto",
+    baseURL: "http://127.0.0.1:9999/v1"
+  });
+
+  assert.match(snippet, /model = "openfusion\/auto"/);
+  assert.match(snippet, /model_provider = "openfusion"/);
+  assert.match(snippet, /base_url = "http:\/\/127\.0\.0\.1:9999\/v1"/);
+
+  const updated = updateCodexConfigText(`model = "gpt-5.5"
+model_provider = "codexapi"
+
+[model_providers.codexapi]
+base_url = "https://codexapi.space/v1"
+env_key = "CODEXAPI_KEY"
+`, {
+    model: "openfusion/auto",
+    baseURL: "http://127.0.0.1:8787/v1"
+  });
+
+  assert.match(updated, /model = "openfusion\/auto"/);
+  assert.match(updated, /model_provider = "openfusion"/);
+  assert.match(updated, /\[model_providers\.openfusion\]/);
+  assert.match(updated, /base_url = "http:\/\/127\.0\.0\.1:8787\/v1"/);
+  assert.match(updated, /\[model_providers\.codexapi\]/);
+});
+
+test("inspects Codex config status and visible mode", () => {
+  const missing = inspectCodexConfigText("", {
+    configPath: "/tmp/missing.toml",
+    exists: false
+  });
+  assert.equal(missing.mode, "missing");
+  assert.equal(missing.autoEnabled, false);
+
+  const direct = inspectCodexConfigText(`model = "gpt-5.5"
+model_provider = "codexapi"
+`, {
+    configPath: "/tmp/direct.toml",
+    exists: true
+  });
+  assert.equal(direct.mode, "direct");
+  assert.equal(direct.enabled, false);
+
+  const auto = inspectCodexConfigText(`model = "openfusion/auto"
+model_provider = "openfusion"
+
+[model_providers.openfusion]
+base_url = "http://127.0.0.1:8787/v1"
+env_key = "OPENFUSION_API_KEY"
+`, {
+    configPath: "/tmp/openfusion.toml",
+    exists: true
+  });
+  assert.equal(auto.mode, "openfusion-auto");
+  assert.equal(auto.enabled, true);
+  assert.equal(auto.autoEnabled, true);
+  assert.match(auto.visibleHint, /openfusion\/auto/);
+});
+
+test("maps Codex actions to target models", () => {
+  assert.equal(targetModelForCodexAction("enable-auto"), "openfusion/auto");
+  assert.equal(targetModelForCodexAction("enable-fusion"), "openfusion/fusion");
+  assert.equal(targetModelForCodexAction("use-role", "coder"), "openfusion/coder");
+  assert.equal(targetModelForCodexAction("use-role", "openfusion/verifier"), "openfusion/verifier");
+  assert.throws(() => targetModelForCodexAction("use-role"), /requires a role name/);
+});
+
+test("writes a Codex config switch with backup controls", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "openfusion-codex-"));
+  const configPath = join(dir, "config.toml");
+
+  try {
+    await writeFile(configPath, `model = "gpt-5.5"
+model_provider = "codexapi"
+
+[model_providers.codexapi]
+base_url = "https://codexapi.space/v1"
+env_key = "CODEXAPI_KEY"
+`, "utf8");
+
+    const switched = await enableCodexOpenFusion({
+      configPath,
+      model: "openfusion/auto",
+      backup: true
+    });
+
+    assert.equal(switched.targetModel, "openfusion/auto");
+    assert.equal(switched.status.autoEnabled, true);
+    assert.ok(switched.backupPath);
+    assert.match(await readFile(configPath, "utf8"), /model = "openfusion\/auto"/);
+    assert.match(await readFile(configPath, "utf8"), /\[model_providers\.openfusion\]/);
+
+    const rewritten = await enableCodexOpenFusion({
+      configPath: join(dir, "fresh.toml"),
+      model: "openfusion/fusion",
+      backup: false
+    });
+
+    assert.equal(rewritten.targetModel, "openfusion/fusion");
+    assert.equal(rewritten.status.mode, "openfusion-fusion");
+    assert.equal(rewritten.backupPath, null);
+    assert.match(await readFile(join(dir, "fresh.toml"), "utf8"), /model = "openfusion\/fusion"/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test("rejects unknown adapters", () => {
