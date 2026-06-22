@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { MockChatClient } from "./mockClient.js";
 import { OpenAICompatibleClient } from "./openaiClient.js";
+import { planAuto, runAuto } from "./auto.js";
 import { fusionBudget, runFusion, runFusionStream } from "./fusion.js";
 import { routeQuestion } from "./router.js";
 import { listModels } from "./models.js";
@@ -40,10 +41,22 @@ export async function startServer({ configPath, dryRun = false, port = Number(pr
         const body = await readJson(request);
         validateChatRequest(body);
         const question = transcriptFromChatBody(body);
+        const requestedModel = body.model ?? "openfusion/auto";
+        const sessionId = sessionIdFromRequest(body, request);
+        if (isAutoModel(requestedModel)) {
+          const auto = planAuto({ question, config, sessionId });
+          return sendJson(response, 200, {
+            object: "openfusion.route",
+            requested_model: requestedModel,
+            route: auto.route,
+            budget: auto.budget,
+            auto
+          });
+        }
         const route = routeQuestion(question, config);
         return sendJson(response, 200, {
           object: "openfusion.route",
-          requested_model: body.model ?? "openfusion/auto",
+          requested_model: requestedModel,
           route,
           budget: fusionBudget(route, config)
         });
@@ -52,6 +65,8 @@ export async function startServer({ configPath, dryRun = false, port = Number(pr
       if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
         const body = await readJson(request);
         validateChatRequest(body);
+        const requestOptions = pickUpstreamOptions(body, request);
+        const sessionId = requestOptions.session_id;
 
         if (hasToolFields(body)) {
           if (body.stream) {
@@ -61,10 +76,11 @@ export async function startServer({ configPath, dryRun = false, port = Number(pr
               mode: "tool-passthrough",
               upstreamModel: resolveUpstreamModel(body.model ?? "openfusion/coder", config, { toolPassthrough: true }),
               reason: "Tool calls bypass fusion so the client can continue the tool-call protocol with one upstream model.",
-              client
+              client,
+              requestOptions
             });
           }
-          const payload = await runToolPassthrough({ body, config, client });
+          const payload = await runToolPassthrough({ body, config, client, requestOptions });
 
           return sendJson(response, 200, payload);
         }
@@ -77,21 +93,34 @@ export async function startServer({ configPath, dryRun = false, port = Number(pr
               mode: "role-passthrough",
               upstreamModel: resolveUpstreamModel(body.model, config),
               reason: "Explicit OpenFusion role models use one configured upstream model instead of the fusion panel.",
-              client
+              client,
+              requestOptions
             });
           }
-          const payload = await runRolePassthrough({ body, config, client });
+          const payload = await runRolePassthrough({ body, config, client, requestOptions });
+
+          return sendJson(response, 200, payload);
+        }
+
+        const requestedModel = body.model ?? "openfusion/auto";
+
+        if (isAutoModel(requestedModel)) {
+          const result = await runAuto({ messages: body.messages, config, client, sessionId, requestOptions });
+          const payload = toOpenAIResponse(result, requestedModel);
+          if (body.stream) {
+            return sendSseCompletion(response, payload);
+          }
 
           return sendJson(response, 200, payload);
         }
 
         if (body.stream) {
-          const fusion = await runFusionStream({ messages: body.messages, config, client });
-          return sendFusionStream(response, fusion, body.model ?? "openfusion/fusion");
+          const fusion = await runFusionStream({ messages: body.messages, config, client, requestOptions });
+          return sendFusionStream(response, fusion, requestedModel);
         }
 
-        const result = await runFusion({ messages: body.messages, config, client });
-        const payload = toOpenAIResponse(result, body.model ?? "openfusion/fusion");
+        const result = await runFusion({ messages: body.messages, config, client, requestOptions });
+        const payload = toOpenAIResponse(result, requestedModel);
 
         return sendJson(response, 200, payload);
       }
@@ -144,11 +173,12 @@ function hasToolFields(body) {
   );
 }
 
-async function runToolPassthrough({ body, config, client }) {
+async function runToolPassthrough({ body, config, client, requestOptions = {} }) {
   const requestedModel = body.model ?? "openfusion/coder";
   const upstreamModel = resolveUpstreamModel(requestedModel, config, { toolPassthrough: true });
   const upstreamPayload = await client.completeChat({
     ...pickPassthroughBody(body),
+    ...requestOptions,
     model: upstreamModel
   });
 
@@ -158,16 +188,18 @@ async function runToolPassthrough({ body, config, client }) {
       mode: "tool-passthrough",
       requested_model: requestedModel,
       upstream_model: upstreamModel,
+      upstream: publicUpstreamOptions(requestOptions),
       reason: "Tool calls bypass fusion so the client can continue the tool-call protocol with one upstream model."
     }
   };
 }
 
-async function runRolePassthrough({ body, config, client }) {
+async function runRolePassthrough({ body, config, client, requestOptions = {} }) {
   const requestedModel = body.model;
   const upstreamModel = resolveUpstreamModel(requestedModel, config);
   const upstreamPayload = await client.completeChat({
     ...pickPassthroughBody(body),
+    ...requestOptions,
     model: upstreamModel
   });
 
@@ -177,6 +209,7 @@ async function runRolePassthrough({ body, config, client }) {
       mode: "role-passthrough",
       requested_model: requestedModel,
       upstream_model: upstreamModel,
+      upstream: publicUpstreamOptions(requestOptions),
       reason: "Explicit OpenFusion role models use one configured upstream model instead of the fusion panel."
     }
   };
@@ -186,6 +219,10 @@ function isExplicitRoleModel(requestedModel, config) {
   if (!requestedModel?.startsWith("openfusion/")) return false;
   const role = requestedModel.split("/")[1];
   return Boolean(config.roles[role]);
+}
+
+function isAutoModel(requestedModel) {
+  return !requestedModel || requestedModel === "openfusion/auto";
 }
 
 function resolveUpstreamModel(requestedModel, config, { toolPassthrough = false } = {}) {
@@ -219,7 +256,11 @@ function pickPassthroughBody(body) {
     "tool_choice",
     "parallel_tool_calls",
     "user",
-    "metadata"
+    "metadata",
+    "models",
+    "provider",
+    "plugins",
+    "session_id"
   ];
   const picked = {};
 
@@ -230,6 +271,50 @@ function pickPassthroughBody(body) {
   }
 
   return picked;
+}
+
+function pickUpstreamOptions(body, request) {
+  const picked = {};
+  for (const key of upstreamOptionKeys()) {
+    if (body[key] !== undefined) {
+      picked[key] = body[key];
+    }
+  }
+
+  const headerSessionId = request.headers["x-session-id"];
+  if (picked.session_id === undefined && typeof headerSessionId === "string" && headerSessionId.trim()) {
+    picked.session_id = headerSessionId.trim();
+  }
+
+  return picked;
+}
+
+function upstreamOptionKeys() {
+  return [
+    "temperature",
+    "top_p",
+    "max_tokens",
+    "max_completion_tokens",
+    "stop",
+    "presence_penalty",
+    "frequency_penalty",
+    "seed",
+    "response_format",
+    "user",
+    "metadata",
+    "models",
+    "provider",
+    "plugins",
+    "session_id"
+  ];
+}
+
+function sessionIdFromRequest(body, request) {
+  const fromBody = typeof body.session_id === "string" && body.session_id.trim() ? body.session_id.trim() : null;
+  const fromHeader = typeof request.headers["x-session-id"] === "string" && request.headers["x-session-id"].trim()
+    ? request.headers["x-session-id"].trim()
+    : null;
+  return fromBody ?? fromHeader;
 }
 
 function normalizeChatCompletion(payload, requestedModel) {
@@ -298,22 +383,17 @@ function toOpenAIResponse(result, requestedModel) {
       total_tokens: 0
     },
     openfusion: {
+      ...(result.auto ? { mode: "auto", auto: result.auto } : { mode: "fusion" }),
       route: result.route,
       panel: result.panel.map(({ role, model }) => ({ role, model })),
-      judge: { role: result.judge.role, model: result.judge.model },
+      judge: { role: result.judge?.role ?? null, model: result.judge?.model ?? null },
       synthesizer: { role: result.final.role, model: result.final.model },
       trace: {
         id: result.trace?.id,
+        auto: result.trace?.auto,
         budget: result.trace?.budget,
         phase_count: result.trace?.phases?.length ?? 0,
-        phases: (result.trace?.phases ?? []).map((phase) => ({
-          phase: phase.phase,
-          role: phase.role,
-          model: phase.model,
-          latency_ms: phase.latencyMs,
-          upstream_id: phase.upstreamId,
-          usage: phase.usage
-        }))
+        phases: (result.trace?.phases ?? []).map(publicTracePhase)
       }
     }
   };
@@ -406,7 +486,7 @@ function sendSseCompletion(response, payload) {
   response.end();
 }
 
-async function sendPassthroughStream(response, { body, requestedModel, upstreamModel, mode, reason, client }) {
+async function sendPassthroughStream(response, { body, requestedModel, upstreamModel, mode, reason, client, requestOptions = {} }) {
   response.writeHead(200, {
     "content-type": "text/event-stream; charset=utf-8",
     "cache-control": "no-cache, no-transform",
@@ -415,6 +495,7 @@ async function sendPassthroughStream(response, { body, requestedModel, upstreamM
 
   for await (const item of client.streamChat({
     ...pickPassthroughBody(body),
+    ...requestOptions,
     model: upstreamModel
   })) {
     const chunk = structuredClone(item.chunk);
@@ -423,6 +504,7 @@ async function sendPassthroughStream(response, { body, requestedModel, upstreamM
       mode,
       requested_model: requestedModel,
       upstream_model: upstreamModel,
+      upstream: publicUpstreamOptions(requestOptions),
       reason
     };
     response.write(`data: ${JSON.stringify(chunk)}\n\n`);
@@ -476,30 +558,49 @@ async function sendFusionStream(response, fusion, requestedModel) {
 
 function buildOpenFusionTrace(result) {
   return {
+    ...(result.auto ? { mode: "auto", auto: result.auto } : { mode: "fusion" }),
     route: result.route,
     panel: result.panel.map(({ role, model }) => ({ role, model })),
-    judge: { role: result.judge.role, model: result.judge.model },
+    judge: { role: result.judge?.role ?? null, model: result.judge?.model ?? null },
     synthesizer: { role: result.final.role, model: result.final.model },
     trace: {
       id: result.trace?.id,
+      auto: result.trace?.auto,
       budget: result.trace?.budget,
       phase_count: result.trace?.phases?.length ?? 0,
-      phases: (result.trace?.phases ?? []).map((phase) => ({
-        phase: phase.phase,
-        role: phase.role,
-        model: phase.model,
-        latency_ms: phase.latencyMs,
-        upstream_id: phase.upstreamId,
-        usage: phase.usage
-      }))
+      phases: (result.trace?.phases ?? []).map(publicTracePhase)
     }
   };
+}
+
+function publicTracePhase(phase) {
+  return {
+    phase: phase.phase,
+    role: phase.role,
+    model: phase.model,
+    candidate_id: phase.candidateId,
+    candidate_model: phase.candidateModel,
+    score: phase.score,
+    latency_ms: phase.latencyMs,
+    upstream_id: phase.upstreamId,
+    upstream: phase.upstream,
+    usage: phase.usage,
+    attempts: phase.attempts
+  };
+}
+
+function publicUpstreamOptions(options = {}) {
+  const picked = {};
+  for (const key of ["models", "provider", "plugins", "session_id"]) {
+    if (options[key] !== undefined) picked[key] = options[key];
+  }
+  return Object.keys(picked).length > 0 ? picked : null;
 }
 
 function setCorsHeaders(response) {
   response.setHeader("access-control-allow-origin", "*");
   response.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
-  response.setHeader("access-control-allow-headers", "authorization,content-type,x-requested-with");
+  response.setHeader("access-control-allow-headers", "authorization,content-type,x-requested-with,x-session-id");
 }
 
 function httpError(statusCode, type, message, code, param) {

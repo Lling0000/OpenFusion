@@ -6,13 +6,13 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Lling0000/OpenFusion/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Lling0000/OpenFusion)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-OpenFusion exposes one OpenAI-compatible endpoint and fans each request out to a small role-based panel, such as `coder`, `reasoner`, `verifier`, and `writer`. It then judges disagreements and synthesizes one final answer, while returning a trace you can inspect.
+OpenFusion exposes one OpenAI-compatible endpoint and turns "pick a suitable model" into a transparent routing decision. `openfusion/auto` scores a candidate pool by task fit, benchmark percentile, price, throughput, latency, availability, fallback order, and session stickiness. Simple requests use one model, important requests add a verifier, and only complex or high-risk requests run the full fusion panel.
 
 Use it when you want Codex, OpenCode, Aider, editor agents, or custom scripts to talk to a single local gateway instead of hard-coding one upstream model for every task.
 
 - Local-first gateway: run it in front of OpenRouter or any OpenAI-compatible relay.
 - Real SSE streaming: passthrough requests stream directly, and fusion streams incrementally once synthesis begins.
-- Transparent fusion: inspect route scores, selected roles, judge, and synthesizer.
+- Transparent routing: inspect Auto candidate scores, fallbacks, sticky session pins, selected roles, judge, and synthesizer.
 - Coding-agent focused: debugging, review, architecture tradeoffs, tests, and docs.
 - Dry-run friendly: try routing and orchestration without an API key.
 - Small by design: zero runtime dependencies, plain Node.js, easy to fork.
@@ -115,7 +115,7 @@ One model is rarely best at everything. Coding, planning, verification, and writ
 
 This is especially useful when your Codex or editor setup already talks to an API relay. Instead of hard-coding one model for every task, OpenFusion can expose one local OpenAI-compatible endpoint and decide which upstream model roles should collaborate for each question.
 
-For Codex, the recommended entry point is `openfusion/auto` in the model selector. Codex does not currently expose a public plugin UI slot for pinning a third-party toggle to the bottom-right of the composer, so the closest native-feeling setup is to make `openfusion/auto` the model you pick when Auto is on.
+For Codex, the recommended entry point is `openfusion/auto` in the model selector. Codex does not currently expose a public plugin UI slot for pinning a third-party toggle to the bottom-right of the composer, so the closest native-feeling setup is to make `openfusion/auto` the model you pick when Auto is on. Auto scores a candidate pool and may choose one model, a primary model plus verifier, or the full fusion panel depending on task risk and complexity.
 
 ## Features
 
@@ -124,7 +124,8 @@ For Codex, the recommended entry point is `openfusion/auto` in the model selecto
 - Debug route endpoint: `POST /debug/route`.
 - CLI commands: `init`, `models`, `route`, `doctor`, `compat`, `adapter`, `codex`, `eval`, `compare`, `receipt`, `serve`, and `chat`.
 - Adapter guides: `adapter codex` and `adapter aider` print local connection settings and verification commands.
-- Transparent `route -> panel -> judge -> synthesize` pipeline.
+- Transparent Auto policy with benchmark/price/performance/availability scoring, fallback, and session stickiness.
+- Explicit `route -> panel -> judge -> synthesize` fusion pipeline when you request `openfusion/fusion` or Auto selects full fusion.
 - Works with OpenRouter or any OpenAI-compatible API relay.
 - Dry-run mode for local testing without API keys.
 - JSON trace showing selected model roles and orchestration metadata.
@@ -268,6 +269,53 @@ Edit `openfusion.config.json` if your relay uses a different base URL or environ
       }
     ]
   },
+  "auto": {
+    "scoring": {
+      "costQualityTradeoff": 7,
+      "preferences": {
+        "minAvailability": 0.4,
+        "preferredMinThroughput": { "p90": 40 },
+        "preferredMaxLatency": { "p90": 5 }
+      }
+    },
+    "stickiness": {
+      "enabled": true,
+      "implicit": true,
+      "ttlMs": 300000
+    },
+    "upstreamFallbacks": {
+      "enabled": true,
+      "maxModels": 2
+    },
+    "candidates": [
+      {
+        "id": "code-router",
+        "role": "coder",
+        "model": "openrouter/pareto-code",
+        "skills": { "coding": 0.9, "reasoning": 0.75 },
+        "benchmarks": { "coding": 86 },
+        "pricing": {
+          "inputUsdPer1M": 0.5,
+          "outputUsdPer1M": 1.5
+        },
+        "performance": {
+          "throughput": { "p50": 90, "p90": 50 },
+          "latency": { "p50": 1.2, "p90": 3.5 }
+        },
+        "availability": 0.85,
+        "upstream": {
+          "provider": {
+            "sort": { "by": "price", "partition": "none" },
+            "preferred_min_throughput": { "p90": 40 },
+            "allow_fallbacks": true
+          },
+          "plugins": [
+            { "id": "pareto-router", "min_coding_score": 0.66 }
+          ]
+        }
+      }
+    ]
+  },
   "fusion": {
     "maxUpstreamCalls": 6,
     "costEstimate": {
@@ -283,7 +331,9 @@ Custom routing rules add to the built-in coding, reasoning, verification, and wr
 
 `maxUpstreamCalls` is a pre-flight safety guard. OpenFusion estimates `selected panel roles + judge + synthesis` and rejects the request before any upstream call if the route would exceed the limit.
 
-Cost estimates are optional and config-driven. Add `pricing` to every selected role if you want `route`, `doctor`, and traces to show estimated USD. Keep those prices in sync with your relay; OpenFusion does not fetch live provider prices.
+Auto cost estimates come from `auto.candidates[].pricing`; explicit fusion cost estimates come from `roles.*.pricing`. Keep those numbers and performance metrics in sync with your relay; OpenFusion does not fetch live provider prices or live benchmark data.
+
+If you override `auto.candidates`, provide the full candidate pool you want Auto to choose from. The generated default config includes candidates for `fast`, `reasoner`, `coder`, `verifier`, and `writer`.
 
 Start OpenFusion:
 
@@ -316,9 +366,9 @@ api_key = any-local-placeholder
 model = openfusion/auto
 ```
 
-OpenFusion will receive the local request, choose a role panel, call your upstream relay, and return a normal chat completion.
+OpenFusion will receive the local request, score the Auto candidate pool, choose a single-model, verified, or full-fusion strategy, call your upstream relay, and return a normal chat completion.
 
-`openfusion/fusion` remains available as the explicit manual model label if you want to select it yourself instead of using the default Auto-facing entry.
+`openfusion/fusion` remains available as the explicit manual model label when you want to force the full panel -> judge -> synthesis route instead of letting Auto choose.
 
 See [docs/codex-relay.md](docs/codex-relay.md) for a more complete Codex/API relay setup guide, including `doctor --probe-url`.
 See [docs/providers](docs/providers) for compatibility report templates and community provider matrix guidance. Provider reports are validated by `npm run check`.
@@ -341,6 +391,35 @@ OpenFusion returns a normal chat completion response plus an `openfusion` trace:
     }
   ],
   "openfusion": {
+    "mode": "auto",
+    "auto": {
+      "mode": "single-verify",
+      "profile": "balanced",
+      "selected": [
+        {
+          "role": "coder",
+          "model": "deepseek/deepseek-chat-v3-0324",
+          "score": 0.847,
+          "metrics": {
+            "benchmark_percentile": 86,
+            "price_usd_per_1m": 0.55,
+            "availability": 0.82
+          },
+          "upstream": {
+            "provider": {
+              "sort": { "by": "price", "partition": "none" }
+            }
+          }
+        },
+        { "role": "verifier", "model": "google/gemini-2.5-pro", "score": 0.781 }
+      ],
+      "session": {
+        "source": "explicit",
+        "id": "codex-workspace-123",
+        "hit": true,
+        "pins": { "roles": { "coder": "deepseek/deepseek-chat-v3-0324" } }
+      }
+    },
     "route": {
       "selectedRoles": ["coder", "verifier", "fast"],
       "rationale": "Selected coder, verifier, fast because the prompt contains coding/debugging and verification signals."
@@ -350,23 +429,43 @@ OpenFusion returns a normal chat completion response plus an `openfusion` trace:
       { "role": "verifier", "model": "google/gemini-2.5-pro" }
     ],
     "judge": { "role": "verifier", "model": "google/gemini-2.5-pro" },
-    "synthesizer": { "role": "writer", "model": "openai/gpt-4.1" }
+    "synthesizer": { "role": "writer", "model": "openai/gpt-4.1" },
+    "trace": {
+      "phase_count": 3,
+      "phases": [
+        {
+          "phase": "primary",
+          "role": "coder",
+          "model": "deepseek/deepseek-chat-v3-0324",
+          "upstream": {
+            "models": ["openai/gpt-4.1-mini", "openai/gpt-4.1"],
+            "session_id": "codex-workspace-123"
+          },
+          "attempts": [
+            { "model": "deepseek/deepseek-chat-v3-0324", "status": "success" }
+          ]
+        }
+      ]
+    }
   }
 }
 ```
 
-Strict OpenAI SDK clients can ignore the extra `openfusion` field. Debugging tools can use it to explain why a request was routed to a specific panel.
+Strict OpenAI SDK clients can ignore the extra `openfusion` field. Debugging tools can use it to explain why Auto chose a specific strategy or why explicit fusion routed to a specific panel.
+For `openfusion/auto`, inspect `openfusion.auto` and `openfusion.trace.auto` to see the selected strategy, candidate scores, and fallbacks. For `openfusion/fusion`, inspect the panel, judge, synthesizer, and phase trace.
 
 ## How It Works
 
 OpenFusion is deliberately small:
 
 1. `src/router.js` scores the prompt for coding, reasoning, verification, and writing signals.
-2. `src/fusion.js` estimates upstream calls and enforces `fusion.maxUpstreamCalls` before any model call.
-3. `src/fusion.js` runs the selected specialist panel concurrently.
-4. `src/prompts.js` creates independent panel prompts, judge prompts, and final synthesis prompts.
-5. `src/openaiClient.js` calls an OpenAI-compatible `/chat/completions` upstream.
-6. `src/server.js` exposes a local `/v1/chat/completions` endpoint.
+2. `src/auto.js` analyzes task risk and complexity, then scores candidate models by skill fit, benchmark percentile, configured price, throughput, latency, availability, role fit, and sticky session pins.
+3. `src/auto.js` chooses `fast-single`, `smart-single`, `single-verify`, or `fusion-panel`, builds ordered fallbacks, and records every selection in trace metadata.
+4. `src/auto.js` and `src/fusion.js` estimate upstream calls and enforce `fusion.maxUpstreamCalls` before any model call.
+5. `src/fusion.js` runs the explicit full-fusion panel concurrently when `openfusion/fusion` is requested or Auto selects `fusion-panel`.
+6. `src/prompts.js` creates independent panel prompts, judge prompts, and final synthesis prompts when the selected strategy needs them.
+7. `src/openaiClient.js` calls an OpenAI-compatible `/chat/completions` upstream and preserves OpenRouter-style `models`, `provider`, `plugins`, and `session_id` fields.
+8. `src/server.js` exposes a local `/v1/chat/completions` endpoint.
 
 ## Compatibility
 
@@ -376,8 +475,8 @@ OpenFusion implements a small OpenAI-compatible surface for local routing.
 | --- | --- | --- |
 | `POST /v1/chat/completions` | Supported | Non-streaming chat completions. |
 | `GET /v1/models` | Supported | Lists virtual OpenFusion models and role models. |
-| `POST /debug/route` | Supported | Shows selected roles, routing rationale, and estimated upstream call budget without running the full pipeline. |
-| Streaming responses | Basic support | Returns SSE-compatible chunks after the fusion result is ready. Token-by-token streaming is planned. |
+| `POST /debug/route` | Supported | Shows selected roles, Auto strategy/candidate scores when `openfusion/auto` is requested, and estimated upstream call budget without running models. |
+| Streaming responses | Basic support | Role/tool passthrough streams directly. Explicit fusion streams once synthesis starts. Auto single/verified responses currently return an SSE-compatible completion chunk after the selected strategy finishes. |
 | Tool calls / function calling | Basic passthrough | Requests with `tools`, `tool_choice`, `parallel_tool_calls`, `role: "tool"`, or assistant `tool_calls` bypass fusion and go to one upstream model so the tool-call protocol is preserved. |
 | Embeddings, images, audio | Not supported | OpenFusion currently focuses on coding-agent chat workflows. |
 
@@ -398,7 +497,7 @@ The official OpenRouter docs currently describe Fusion as a router that exposes 
 
 OpenFusion is an early, working prototype for local multi-model orchestration.
 
-It is useful today for experimenting with role-based routing, dry-run traces, eval receipts, graded comparison receipts, incremental synthesis streaming, basic upstream call budgets, and OpenAI-compatible relay integration. It is not yet a production gateway: full fan-out token multiplexing, provider-specific quirks, cost-aware routing, and fusion-aware tool orchestration are still on the roadmap. Basic tool-call passthrough already exists so coding-agent tool turns stay on one upstream model.
+It is useful today for experimenting with role-based routing, Auto candidate scoring, fallback traces, sticky sessions, dry-run traces, eval receipts, graded comparison receipts, incremental synthesis streaming, basic upstream call budgets, and OpenAI-compatible relay integration. It is not yet a production gateway: full fan-out token multiplexing, live provider telemetry ingestion, provider-specific quirks, and fusion-aware tool orchestration are still on the roadmap. Basic tool-call passthrough already exists so coding-agent tool turns stay on one upstream model.
 
 If you adopt it, keep tests, code review, and domain-specific validation in the loop. Fusion improves coverage of perspectives; it does not guarantee correctness.
 
@@ -406,7 +505,7 @@ If you adopt it, keep tests, code review, and domain-specific validation in the 
 
 - Token-by-token streaming from the local server.
 - Better prompt classification with examples and custom rules.
-- Budget-aware routing by cost, latency, and context window.
+- Optional live telemetry import for provider prices, latency, throughput, availability, and context windows.
 - Real-provider eval receipts comparing single-model vs fusion answers with task-specific grading.
 - Single-model vs fusion comparison receipts with `openfusion compare`.
 - Adapter presets for Codex, OpenCode, Continue, Cline, Aider, and LiteLLM.

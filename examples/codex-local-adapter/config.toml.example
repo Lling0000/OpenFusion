@@ -1,5 +1,5 @@
 # Recommended Codex-facing default. If Codex shows this in the model selector,
-# Auto is entering through OpenFusion.
+# Codex is entering through the OpenFusion Auto strategy.
 model = "openfusion/auto"
 model_provider = "openfusion"
 

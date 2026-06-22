@@ -57,6 +57,88 @@
       }
     ]
   },
+  "auto": {
+    "scoring": {
+      "costQualityTradeoff": 7,
+      "preferences": {
+        "minAvailability": 0.4,
+        "preferredMinThroughput": { "p90": 40 },
+        "preferredMaxLatency": { "p90": 5 }
+      }
+    },
+    "stickiness": {
+      "enabled": true,
+      "implicit": true,
+      "ttlMs": 300000
+    },
+    "fallbackRoles": ["fast", "writer", "reasoner"],
+    "upstreamFallbacks": {
+      "enabled": true,
+      "maxModels": 2
+    },
+    "candidates": [
+      {
+        "id": "fast-relay",
+        "role": "fast",
+        "model": "your-fast-model",
+        "benchmarks": { "general": 60 },
+        "pricing": { "inputUsdPer1M": 0.1, "outputUsdPer1M": 0.4 },
+        "performance": {
+          "throughput": { "p50": 100, "p90": 60 },
+          "latency": { "p50": 0.8, "p90": 2.0 }
+        },
+        "availability": 0.9
+      },
+      {
+        "id": "code-relay",
+        "role": "coder",
+        "model": "your-code-model",
+        "benchmarks": { "coding": 80 },
+        "pricing": { "inputUsdPer1M": 0.5, "outputUsdPer1M": 1.5 },
+        "performance": {
+          "throughput": { "p50": 80, "p90": 45 },
+          "latency": { "p50": 1.2, "p90": 3.5 }
+        },
+        "availability": 0.85
+      },
+      {
+        "id": "reasoner-relay",
+        "role": "reasoner",
+        "model": "your-reasoning-model",
+        "benchmarks": { "reasoning": 85 },
+        "pricing": { "inputUsdPer1M": 3, "outputUsdPer1M": 15 },
+        "performance": {
+          "throughput": { "p50": 55, "p90": 32 },
+          "latency": { "p50": 1.5, "p90": 4.5 }
+        },
+        "availability": 0.84
+      },
+      {
+        "id": "verifier-relay",
+        "role": "verifier",
+        "model": "your-review-model",
+        "benchmarks": { "verification": 86 },
+        "pricing": { "inputUsdPer1M": 2, "outputUsdPer1M": 8 },
+        "performance": {
+          "throughput": { "p50": 45, "p90": 26 },
+          "latency": { "p50": 1.8, "p90": 5.0 }
+        },
+        "availability": 0.82
+      },
+      {
+        "id": "writer-relay",
+        "role": "writer",
+        "model": "your-polish-model",
+        "benchmarks": { "writing": 88 },
+        "pricing": { "inputUsdPer1M": 1, "outputUsdPer1M": 4 },
+        "performance": {
+          "throughput": { "p50": 60, "p90": 36 },
+          "latency": { "p50": 1.2, "p90": 3.5 }
+        },
+        "availability": 0.85
+      }
+    ]
+  },
   "fusion": {
     "minPanel": 2,
     "maxPanel": 4,

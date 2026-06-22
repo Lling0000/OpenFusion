@@ -121,7 +121,11 @@ function pickChatOptions(options) {
     "tool_choice",
     "parallel_tool_calls",
     "user",
-    "metadata"
+    "metadata",
+    "models",
+    "provider",
+    "plugins",
+    "session_id"
   ];
   const picked = {};
 

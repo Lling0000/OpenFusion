@@ -1,7 +1,7 @@
 import { routeQuestion } from "./router.js";
 import { panelPrompt, judgePrompt, synthesisPrompt } from "./prompts.js";
 
-export async function runFusion({ question, messages, config, client }) {
+export async function runFusion({ question, messages, config, client, requestOptions = {} }) {
   const normalizedQuestion = question ?? transcriptFromMessages(messages);
   const route = routeQuestion(normalizedQuestion, config);
   const budget = fusionBudget(route, config);
@@ -20,6 +20,7 @@ export async function runFusion({ question, messages, config, client }) {
       role,
       model: roleConfig.model,
       messages: panelPrompt({ role, roleConfig, question: normalizedQuestion }),
+      ...requestOptions,
       metadata: { phase: "panel", role }
     });
 
@@ -42,6 +43,7 @@ export async function runFusion({ question, messages, config, client }) {
     role: judgeRole,
     model: judgeConfig.model,
     messages: judgePrompt({ question: normalizedQuestion, panelResponses }),
+    ...requestOptions,
     metadata: { phase: "judge", role: judgeRole }
   });
   trace.phases.push(judgePhase);
@@ -53,6 +55,7 @@ export async function runFusion({ question, messages, config, client }) {
     role: synthesizerRole,
     model: synthesizerConfig.model,
     messages: synthesisPrompt({ question: normalizedQuestion, panelResponses, judgeResponse }),
+    ...requestOptions,
     metadata: { phase: "synthesis", role: synthesizerRole }
   });
   trace.phases.push(synthesisPhase);
@@ -77,7 +80,7 @@ export async function runFusion({ question, messages, config, client }) {
   };
 }
 
-export async function runFusionStream({ question, messages, config, client }) {
+export async function runFusionStream({ question, messages, config, client, requestOptions = {} }) {
   const normalizedQuestion = question ?? transcriptFromMessages(messages);
   const route = routeQuestion(normalizedQuestion, config);
   const budget = fusionBudget(route, config);
@@ -96,6 +99,7 @@ export async function runFusionStream({ question, messages, config, client }) {
       role,
       model: roleConfig.model,
       messages: panelPrompt({ role, roleConfig, question: normalizedQuestion }),
+      ...requestOptions,
       metadata: { phase: "panel", role }
     });
 
@@ -118,6 +122,7 @@ export async function runFusionStream({ question, messages, config, client }) {
     role: judgeRole,
     model: judgeConfig.model,
     messages: judgePrompt({ question: normalizedQuestion, panelResponses }),
+    ...requestOptions,
     metadata: { phase: "judge", role: judgeRole }
   });
   trace.phases.push(judgePhase);
@@ -133,6 +138,7 @@ export async function runFusionStream({ question, messages, config, client }) {
     role: synthesizerRole,
     model: synthesizerConfig.model,
     messages: synthesisPrompt({ question: normalizedQuestion, panelResponses, judgeResponse }),
+    ...requestOptions,
     metadata: { phase: "synthesis", role: synthesizerRole }
   });
 

@@ -121,6 +121,48 @@ test("preserves multi-message transcript for routing and panel prompts", async (
   assert.match(result.question, /Now debug this failing test/);
 });
 
+test("passes upstream routing options through every fusion phase", async () => {
+  const client = new RecordingClient();
+  const result = await runFusion({
+    question: "Review this API patch for tests",
+    config: defaultConfig,
+    client,
+    requestOptions: {
+      provider: { sort: "throughput" },
+      plugins: [{ id: "test-plugin" }],
+      session_id: "fusion-session"
+    }
+  });
+
+  assert.ok(result.trace.phases.length >= 3);
+  assert.equal(client.calls.length, result.trace.phases.length);
+  assert.ok(client.calls.every((call) => call.provider.sort === "throughput"));
+  assert.ok(client.calls.every((call) => call.session_id === "fusion-session"));
+  assert.deepEqual(client.calls[0].plugins, [{ id: "test-plugin" }]);
+});
+
+class RecordingClient {
+  constructor() {
+    this.calls = [];
+  }
+
+  async complete(request) {
+    this.calls.push(request);
+    return {
+      model: request.model,
+      content: `[${request.metadata?.phase}] ${request.model}`,
+      raw: {
+        id: `chatcmpl-${request.metadata?.phase}`,
+        usage: {
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0
+        }
+      }
+    };
+  }
+}
+
 function pricedConfig() {
   const config = structuredClone(defaultConfig);
   for (const role of Object.keys(config.roles)) {

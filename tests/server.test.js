@@ -27,7 +27,7 @@ test("serves OpenAI-compatible models and chat completions", async () => {
     assert.ok(route.route.selectedRoles.includes("verifier"));
     assert.equal(route.budget.withinBudget, true);
     assert.equal(route.budget.maxUpstreamCalls, defaultConfig.fusion.maxUpstreamCalls);
-    assert.equal(route.budget.cost.available, false);
+    assert.equal(route.budget.cost.available, true);
 
     const completion = await fetchJson(`http://127.0.0.1:${port}/v1/chat/completions`, {
       method: "POST",
@@ -47,6 +47,64 @@ test("serves OpenAI-compatible models and chat completions", async () => {
     assert.equal(completion.openfusion.trace.budget.cost.available, false);
     assert.equal(completion.openfusion.trace.phase_count, completion.openfusion.panel.length + 2);
     assert.equal(typeof completion.usage.total_tokens, "number");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("serves independent auto policy decisions and traces", async () => {
+  const server = await startServer({ dryRun: true, port: 0 });
+  const { port } = server.address();
+
+  try {
+    const simpleRoute = await fetchJson(`http://127.0.0.1:${port}/debug/route`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "openfusion/auto",
+        session_id: "server-auto-session",
+        messages: [{ role: "user", content: "Say hello." }]
+      })
+    });
+    assert.equal(simpleRoute.auto.mode, "fast-single");
+    assert.equal(simpleRoute.auto.session.source, "explicit");
+    assert.equal(simpleRoute.auto.session.id, "server-auto-session");
+    assert.equal(simpleRoute.budget.estimatedUpstreamCalls, 1);
+    assert.equal(simpleRoute.budget.cost.available, true);
+    assert.ok(simpleRoute.auto.candidates.length >= Object.keys(defaultConfig.roles).length);
+    assert.equal(typeof simpleRoute.auto.candidates[0].metrics.benchmark_percentile, "number");
+    assert.equal(typeof simpleRoute.auto.candidates[0].score_breakdown.weights.price, "number");
+
+    const simpleCompletion = await fetchJson(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-session-id": "server-auto-session" },
+      body: JSON.stringify({
+        model: "openfusion/auto",
+        provider: { sort: "throughput", allow_fallbacks: false },
+        messages: [{ role: "user", content: "Say hello." }]
+      })
+    });
+    assert.equal(simpleCompletion.model, "openfusion/auto");
+    assert.equal(simpleCompletion.openfusion.mode, "auto");
+    assert.equal(simpleCompletion.openfusion.auto.mode, "fast-single");
+    assert.equal(simpleCompletion.openfusion.trace.phase_count, 1);
+    assert.equal(simpleCompletion.openfusion.judge.role, null);
+    assert.equal(simpleCompletion.openfusion.panel.length, 1);
+    assert.equal(simpleCompletion.openfusion.trace.auto.session.id, "server-auto-session");
+    assert.equal(simpleCompletion.openfusion.trace.phases[0].upstream.session_id, "server-auto-session");
+    assert.deepEqual(simpleCompletion.openfusion.trace.phases[0].upstream.provider, { sort: "throughput", allow_fallbacks: false });
+    assert.ok(Array.isArray(simpleCompletion.openfusion.trace.phases[0].upstream.models));
+
+    const highRiskRoute = await fetchJson(`http://127.0.0.1:${port}/debug/route`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "openfusion/auto",
+        messages: [{ role: "user", content: "Compare two production API architectures for a critical auth migration, security risks, rollback, data loss, tests, and tradeoffs." }]
+      })
+    });
+    assert.equal(highRiskRoute.auto.mode, "fusion-panel");
+    assert.ok(highRiskRoute.auto.phases.filter((phase) => phase.phase === "panel").length >= 2);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -120,6 +178,8 @@ test("passes explicit role model chats through one upstream model", async () => 
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         model: "openfusion/coder",
+        session_id: "role-session",
+        provider: { sort: "latency" },
         messages: [{ role: "user", content: "Debug this failing API test" }]
       })
     });
@@ -130,6 +190,10 @@ test("passes explicit role model chats through one upstream model", async () => 
     assert.equal(body.model, "openfusion/coder");
     assert.equal(body.openfusion.mode, "role-passthrough");
     assert.equal(body.openfusion.upstream_model, defaultConfig.roles.coder.model);
+    assert.deepEqual(body.openfusion.upstream, {
+      provider: { sort: "latency" },
+      session_id: "role-session"
+    });
     assert.equal(body.choices[0].message.content, "OpenFusion mock passthrough response.");
     assert.equal(body.openfusion.panel, undefined);
   } finally {
@@ -224,6 +288,32 @@ test("passes tool calls through one upstream model instead of fusion", async () 
     assert.equal(body.openfusion.upstream_model, defaultConfig.roles[defaultConfig.fusion.toolRole].model);
     assert.equal(body.choices[0].finish_reason, "tool_calls");
     assert.equal(body.choices[0].message.tool_calls[0].function.name, "run_tests");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("passes openfusion auto tool calls through one upstream model", async () => {
+  const server = await startServer({ dryRun: true, port: 0 });
+  const { port } = server.address();
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "openfusion/auto",
+        tools: [{ type: "function", function: { name: "run_tests", parameters: {} } }],
+        tool_choice: { type: "function", function: { name: "run_tests" } },
+        messages: [{ role: "user", content: "Call a tool" }]
+      })
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.openfusion.mode, "tool-passthrough");
+    assert.equal(body.openfusion.requested_model, "openfusion/auto");
+    assert.equal(body.openfusion.upstream_model, defaultConfig.roles[defaultConfig.fusion.toolRole].model);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -331,6 +421,7 @@ test("handles OPTIONS and query strings", async () => {
     });
     assert.equal(options.status, 204);
     assert.equal(options.headers.get("access-control-allow-origin"), "*");
+    assert.match(options.headers.get("access-control-allow-headers"), /x-session-id/);
 
     const models = await fetchJson(`http://127.0.0.1:${port}/v1/models?foo=bar`);
     assert.equal(models.object, "list");

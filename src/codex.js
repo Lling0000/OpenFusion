@@ -192,7 +192,7 @@ openfusion codex enable-auto
 ${snippet}
 \`\`\`
 
-When Codex shows the selected model near the composer/model selector, look for \`openfusion/auto\` to confirm Auto is on.`;
+When Codex shows the selected model near the composer/model selector, look for \`openfusion/auto\` to confirm the Auto strategy is on.`;
 }
 
 export function renderCodexSwitch(result) {
@@ -245,10 +245,10 @@ function codexVisibleHint(mode, model) {
 }
 
 function codexRecommendation(mode) {
-  if (mode === "openfusion-auto") return "Auto is already enabled. Ask a normal question and inspect /debug/route or response.openfusion to see the selected roles.";
-  if (mode === "openfusion-fusion") return "Fusion is enabled. Use openfusion codex enable-auto if you want the explicit Auto switch state.";
-  if (mode === "openfusion-role") return "A single role is selected. Use openfusion codex enable-auto to turn the Auto router back on.";
-  return "Run openfusion codex enable-auto to point Codex at the local Auto router.";
+  if (mode === "openfusion-auto") return "Auto is already enabled. Ask a normal question and inspect /debug/route or response.openfusion to see the selected strategy, candidates, and roles.";
+  if (mode === "openfusion-fusion") return "Fusion is enabled. Use openfusion codex enable-auto if you want Auto to choose between single-model, verified, and full-fusion strategies.";
+  if (mode === "openfusion-role") return "A single role is selected. Use openfusion codex enable-auto to turn the Auto strategy back on.";
+  return "Run openfusion codex enable-auto to point Codex at the local Auto strategy.";
 }
 
 function readTopLevelString(text, key) {

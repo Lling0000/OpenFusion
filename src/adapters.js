@@ -71,7 +71,7 @@ aider --model ${aiderModel}`,
       "Keep your real relay API key in the upstream environment variable, not in Codex client config.",
       "If you are running from a git checkout, replace openfusion with node src/cli.js.",
       "Use dry-run mode first to verify routing without sending prompts upstream.",
-      "In Codex, the clearest visible switch is the selected model name: openfusion/auto means Auto is on.",
+      "In Codex, the clearest visible switch is the selected model name: openfusion/auto means the Auto strategy is on.",
       "Tool-call requests use single-model passthrough so coding-agent protocols remain stable."
     ]
   };

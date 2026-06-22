@@ -3,7 +3,7 @@ export function listModels(config) {
     {
       id: "openfusion/auto",
       kind: "virtual",
-      description: "Rule-based auto router that selects single or fusion-style roles."
+      description: "Transparent auto policy that scores candidates by task fit, benchmarks, price, performance, availability, fallback, and stickiness before choosing single-model, verified, or full-fusion execution."
     },
     {
       id: "openfusion/fusion",

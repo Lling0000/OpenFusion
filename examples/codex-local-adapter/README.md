@@ -2,7 +2,7 @@
 
 This example is the copy-paste path for connecting Codex to a local OpenFusion dry-run server first, before using any real upstream relay key.
 
-The recommended Codex entry is `openfusion/auto`. Codex does not currently expose a public plugin UI slot for pinning a custom button to the bottom-right of the input box, so the closest native-feeling setup is to let the Codex model selector show `openfusion/auto` when Auto is on.
+The recommended Codex entry is `openfusion/auto`. Codex does not currently expose a public plugin UI slot for pinning a custom button to the bottom-right of the input box, so the closest native-feeling setup is to let the Codex model selector show `openfusion/auto` when the Auto strategy is on.
 
 ## 1. Start OpenFusion Locally
 
@@ -62,6 +62,8 @@ base_url = http://127.0.0.1:8787/v1
 model = openfusion/auto
 ```
 
-Tool-call turns stay in single-model passthrough mode so Codex's tool protocol remains stable.
+Tool-call turns stay in single-model passthrough mode so Codex's tool protocol remains stable. Ordinary assistant-answer turns with `openfusion/auto` may use one model, a primary model plus verifier, or the full fusion panel depending on task risk and complexity.
 
-When the Codex model selector shows `openfusion/auto`, that is your visible confirmation that Auto is enabled. If you want the explicit manual model label instead, switch only the model to `openfusion/fusion`.
+Auto scores the configured candidate pool by task fit, benchmark percentile, price, throughput, latency, availability, fallback order, and session stickiness. If the client sends `session_id` or `x-session-id`, OpenFusion keeps the same role/model pins for that session by default and records the choice in `openfusion.trace`.
+
+When the Codex model selector shows `openfusion/auto`, that is your visible confirmation that Auto is enabled. If you want to force the explicit full-fusion strategy instead, switch only the model to `openfusion/fusion`.

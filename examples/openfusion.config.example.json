@@ -37,6 +37,107 @@
       }
     ]
   },
+  "auto": {
+    "scoring": {
+      "costQualityTradeoff": 7,
+      "preferences": {
+        "minAvailability": 0.4,
+        "preferredMinThroughput": { "p90": 40 },
+        "preferredMaxLatency": { "p90": 5 }
+      }
+    },
+    "stickiness": {
+      "enabled": true,
+      "implicit": true,
+      "ttlMs": 300000
+    },
+    "fallbackRoles": ["fast", "writer", "reasoner"],
+    "upstreamFallbacks": {
+      "enabled": true,
+      "maxModels": 2
+    },
+    "candidates": [
+      {
+        "id": "fast-default",
+        "role": "fast",
+        "model": "openai/gpt-4.1-mini",
+        "benchmarks": { "general": 62 },
+        "pricing": { "inputUsdPer1M": 0.4, "outputUsdPer1M": 1.6 },
+        "performance": {
+          "throughput": { "p50": 115, "p90": 70 },
+          "latency": { "p50": 0.8, "p90": 2.1 }
+        },
+        "availability": 0.86,
+        "upstream": {
+          "provider": { "sort": "latency", "allow_fallbacks": true }
+        }
+      },
+      {
+        "id": "coder-default",
+        "role": "coder",
+        "model": "deepseek/deepseek-chat-v3-0324",
+        "benchmarks": { "coding": 86 },
+        "pricing": { "inputUsdPer1M": 0.27, "outputUsdPer1M": 1.1 },
+        "performance": {
+          "throughput": { "p50": 92, "p90": 56 },
+          "latency": { "p50": 1.1, "p90": 3.2 }
+        },
+        "availability": 0.82,
+        "upstream": {
+          "provider": {
+            "sort": { "by": "price", "partition": "none" },
+            "preferred_min_throughput": { "p90": 40 },
+            "allow_fallbacks": true
+          }
+        }
+      },
+      {
+        "id": "reasoner-default",
+        "role": "reasoner",
+        "model": "anthropic/claude-3.7-sonnet",
+        "benchmarks": { "reasoning": 88 },
+        "pricing": { "inputUsdPer1M": 3, "outputUsdPer1M": 15 },
+        "performance": {
+          "throughput": { "p50": 58, "p90": 34 },
+          "latency": { "p50": 1.5, "p90": 4.5 }
+        },
+        "availability": 0.84,
+        "upstream": {
+          "provider": { "sort": "price", "allow_fallbacks": true }
+        }
+      },
+      {
+        "id": "verifier-default",
+        "role": "verifier",
+        "model": "google/gemini-2.5-pro",
+        "benchmarks": { "verification": 90 },
+        "pricing": { "inputUsdPer1M": 1.25, "outputUsdPer1M": 10 },
+        "performance": {
+          "throughput": { "p50": 42, "p90": 24 },
+          "latency": { "p50": 2.0, "p90": 6.0 }
+        },
+        "availability": 0.8,
+        "upstream": {
+          "provider": { "sort": "price", "allow_fallbacks": true }
+        }
+      },
+      {
+        "id": "writer-default",
+        "role": "writer",
+        "model": "openai/gpt-4.1",
+        "benchmarks": { "writing": 90 },
+        "pricing": { "inputUsdPer1M": 2, "outputUsdPer1M": 8 },
+        "performance": {
+          "throughput": { "p50": 62, "p90": 38 },
+          "latency": { "p50": 1.2, "p90": 3.8 }
+        },
+        "availability": 0.85,
+        "upstream": {
+          "provider": { "sort": "price", "allow_fallbacks": true }
+        }
+      }
+    ]
+  },
   "fusion": {
     "minPanel": 2,
     "maxPanel": 4,
